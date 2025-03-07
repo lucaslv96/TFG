@@ -82,7 +82,7 @@ class ChartWindow(QtWidgets.QWidget):  # Changed from QDialog to QWidget
                                 # Limpiar espacios especiales y caracteres no deseados
                                 value = value.replace('\xa0', ' ').replace('$', '').strip()
                                 
-                                # IMPORTANTE: Comprobar 'mil M' ANTES de comprobar 'M'
+                                # CASO 1: "mil M" (miles de millones)
                                 if "mil M" in value:
                                     print(f"🔍 DETECTADO FORMATO 'mil M': '{value}'")
                                     # Extraer solo la parte numérica (antes de "mil")
@@ -112,24 +112,47 @@ class ChartWindow(QtWidgets.QWidget):  # Changed from QDialog to QWidget
                                             print("❌ Falló el método alternativo también")
                                             value = 0
                                 
-                                # Formato 'M' (sin 'mil')
-                                elif "M" in value and "mil" not in value:
+                                # CASO 2: "M" (millones)
+                                elif "M" in value:
                                     print(f"🔍 Detectado formato 'M': '{value}'")
+                                    # Obtener la parte numérica (sin la M)
                                     num_part = value.replace("M", "").strip()
+                                    print(f"📊 Parte numérica extraída: '{num_part}'")
                                     
-                                    # Convertir coma a punto
-                                    if "," in num_part:
+                                    # Formato europeo: 2.316,90 -> 2316.90
+                                    if '.' in num_part and ',' in num_part:
+                                        # Primero eliminar puntos (separadores de miles)
+                                        num_part = num_part.replace(".", "")
+                                        # Después sustituir coma por punto (separador decimal)
                                         num_part = num_part.replace(",", ".")
+                                        print(f"🔄 Convertido de formato europeo: '{num_part}'")
+                                    # Formato con sólo coma decimal: 2,90 -> 2.90
+                                    elif ',' in num_part:
+                                        num_part = num_part.replace(",", ".")
+                                        print(f"🔄 Reemplazada coma por punto: '{num_part}'")
                                     
                                     try:
+                                        # Convertir a número y multiplicar por millón
                                         result = float(num_part) * 1000000
                                         print(f"✅ ÉXITO: '{original_value}' → {result:,.2f}")
                                         value = result
                                     except Exception as e:
-                                        print(f"❌ ERROR: {e}")
-                                        value = 0
+                                        print(f"❌ ERROR en formato M: {e}")
+                                        # Intentar limpiar más agresivamente
+                                        try:
+                                            # Eliminar todo excepto dígitos y punto decimal
+                                            clean_num = ''.join([c for c in num_part if c.isdigit() or c == '.'])
+                                            if clean_num.count('.') > 1:  # Si hay múltiples puntos, quedarse con el último
+                                                last_dot_pos = clean_num.rfind('.')
+                                                clean_num = clean_num[:last_dot_pos].replace('.', '') + clean_num[last_dot_pos:]
+                                            result = float(clean_num) * 1000000
+                                            print(f"🔄 Conversión alternativa: {result:,.2f}")
+                                            value = result
+                                        except Exception as e2:
+                                            print(f"❌ ERROR también en método alternativo: {e2}")
+                                            value = 0
                                 
-                                # Valores normales
+                                # CASO 3: Valores normales o vacíos
                                 else:
                                     try:
                                         if value.strip():
@@ -145,18 +168,45 @@ class ChartWindow(QtWidgets.QWidget):  # Changed from QDialog to QWidget
                         
                         elif provider == 'Macrotrends':
                             if isinstance(value, str):
-                                # Remove currency symbols
-                                value = value.replace('$', '')
+                                # Guardar valor original para depuración
+                                original_value = value
+                                print(f"🔹 Procesando valor Macrotrends: '{original_value}' para {year}")
                                 
-                                # Handle Macrotrends format where comma is used as decimal point
-                                if ',' in value:
+                                # Eliminar símbolos de moneda y espacios
+                                value = value.replace('$', '').replace('\xa0', ' ').strip()
+                                
+                                # Manejar formato con punto como separador de miles y coma como decimal
+                                if '.' in value and ',' in value:
+                                    # Primero eliminar puntos (separadores de miles)
+                                    value = value.replace('.', '')
+                                    # Después reemplazar coma por punto (separador decimal)
                                     value = value.replace(',', '.')
+                                    print(f"🔄 Convertido de formato europeo: '{value}'")
+                                # Formato con solo coma como separador decimal
+                                elif ',' in value:
+                                    value = value.replace(',', '.')
+                                    print(f"🔄 Reemplazada coma por punto: '{value}'")
                                 
-                                # Macrotrends values are in millions without explicit indicator
                                 try:
-                                    value = float(value) * 1000000  # Convert to millions
-                                except:
-                                    value = 0
+                                    # Convertir a número y multiplicar por millón (Macrotrends muestra en millones)
+                                    result = float(value) * 1000000
+                                    print(f"✅ ÉXITO: '{original_value}' → {result:,.2f}")
+                                    value = result
+                                except Exception as e:
+                                    print(f"❌ ERROR en conversión de Macrotrends: {e}")
+                                    # Intentar limpieza más agresiva
+                                    try:
+                                        # Eliminar cualquier carácter no numérico excepto el punto
+                                        clean_num = ''.join([c for c in value if c.isdigit() or c == '.'])
+                                        if clean_num:
+                                            result = float(clean_num) * 1000000
+                                            print(f"🔄 Conversión alternativa: {result:,.2f}")
+                                            value = result
+                                        else:
+                                            value = 0
+                                    except Exception as e2:
+                                        print(f"❌ ERROR en método alternativo: {e2}")
+                                        value = 0
                             elif pd.isna(value) or value == 'N/A':
                                 value = 0
                         

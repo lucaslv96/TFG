@@ -103,10 +103,10 @@ def buscar_datos(self):
         self.lineEdit.setEnabled(False)
         self.pushButton.setEnabled(False)
         
-        # Reiniciar los dataframes
+        # Reiniciar los dataframes y asegurar que los atributos existen
         self.google_df = pd.DataFrame()
         self.yahoo_df = pd.DataFrame()
-        self.macrotrends_df = pd.DataFrame()
+        self.macrotrends_df = pd.DataFrame()  # Asegurar que este atributo existe
 
         # Inicializar el contador de trabajadores finalizados
         self.trabajadores_finalizados = 0
@@ -115,6 +115,17 @@ def buscar_datos(self):
         self.balanceButton.setVisible(False)
         self.flujoCajaButton.setVisible(False)
         self.perdidasGananciasButton.setVisible(False)
+        
+        # Asegurar que las casillas de búsqueda están visibles y habilitadas
+        self.search_google.setVisible(True)
+        self.search_yahoo.setVisible(True)
+        self.search_macrotrends.setVisible(True)
+        self.search_google.setEnabled(True)
+        self.search_yahoo.setEnabled(True)
+        self.search_macrotrends.setEnabled(True)
+        self.search_google.clear()  # Limpiar el contenido de las casillas
+        self.search_yahoo.clear()
+        self.search_macrotrends.clear()
         
         # Iniciar los trabajadores para obtener datos
         self.google_worker = Worker(ticker)
@@ -146,11 +157,11 @@ def mostrar_datos_yahoo(self, df):
     verificar_datos(self)
 
 def mostrar_datos_macrotrends(self, df):
-    #print("Mostrando datos de Macrotrends:", df)
-    self.macrotrends_df = df
-    self.trabajadores_finalizados += 1  # Incrementar contador
+    # Corregimos aquí para asignar a self.macrotrends_df en lugar de self.df_macrotrends
+    self.macrotrends_df = df  # Este es el problema, estaba usando el nombre incorrecto
+    self.trabajadores_finalizados += 1
     self.statusLabel.setText(f"{self.trabajadores_finalizados}/3 búsquedas completadas")
-    self.progressBar.setValue(int((self.trabajadores_finalizados / 3) * 100))  # Convert to int
+    self.progressBar.setValue(int((self.trabajadores_finalizados / 3) * 100))
     verificar_datos(self)
 
 def verificar_datos(self):
@@ -161,36 +172,68 @@ def verificar_datos(self):
     # Una vez completada la búsqueda, hacer visible el frame si existe
     if hasattr(self, 'saved_filter_frame') and self.saved_filter_frame is not None:
         self.saved_filter_frame.setVisible(True)
+        
+    # Asegurar que las casillas de búsqueda estén visibles y habilitadas al finalizar la búsqueda
+    if hasattr(self, 'search_google'):
+        self.search_google.setVisible(True)
+        self.search_google.setEnabled(True)
+        self.search_google.clear()
+        
+    if hasattr(self, 'search_yahoo'):
+        self.search_yahoo.setVisible(True)
+        self.search_yahoo.setEnabled(True)
+        self.search_yahoo.clear()
+        
+    if hasattr(self, 'search_macrotrends'):
+        self.search_macrotrends.setVisible(True)
+        self.search_macrotrends.setEnabled(True)
+        self.search_macrotrends.clear()
+    
+    # Conectar las señales de búsqueda
+    try:
+        # Desconectar señales previas primero
+        self.search_google.textChanged.disconnect()
+        self.search_yahoo.textChanged.disconnect()
+        self.search_macrotrends.textChanged.disconnect()
+    except (TypeError, AttributeError):
+        pass  # No hay problema si no están conectadas
+    
+    # Conectar nuevamente las señales de búsqueda
+    self.search_google.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView, text))
+    self.search_yahoo.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView_3, text))
+    self.search_macrotrends.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView_4, text))
 
     mostrar_todos_los_datos(self)
     self.statusLabel.setText("Búsqueda completada")
-    self.progressBar.setVisible(False)  # Hide the progress bar after completion
+    self.progressBar.setVisible(False)
 
 def mostrar_todos_los_datos(self):
     print("Mostrando todos los datos")
     self.lineEdit.setEnabled(True)
     self.pushButton.setEnabled(True)
     
+    # Corregimos aquí para usar self.macrotrends_df en lugar de self.df_macrotrends
     self.df = self.google_df if not self.google_df.empty else pd.DataFrame()
     self.df_yahoo = self.yahoo_df if not self.yahoo_df.empty else pd.DataFrame()
-    self.df_macrotrends = self.macrotrends_df if not self.macrotrends_df.empty else pd.DataFrame()
+    # Usar el nombre de atributo correcto
+    macrotrends_data = self.macrotrends_df if hasattr(self, 'macrotrends_df') and not self.macrotrends_df.empty else pd.DataFrame()
     
-    # Definir self.data_frames
+    # Definir self.data_frames con manejo seguro de macrotrends_data
     self.data_frames = {
         'balance': {
             'google': filtrar_datos_google(self.df, 'balance') if not self.df.empty else pd.DataFrame(),
             'yahoo': filtrar_datos_yahoo(self.lineEdit.text().strip(), 'balance') if not self.df_yahoo.empty else pd.DataFrame(),
-            'macrotrends': filtrar_datos_macrotrends(self.df_macrotrends, 'balance') if not self.df_macrotrends.empty else pd.DataFrame()
+            'macrotrends': filtrar_datos_macrotrends(macrotrends_data, 'balance') if not macrotrends_data.empty else pd.DataFrame()
         },
         'cashflow': {
             'google': filtrar_datos_google(self.df, 'cashflow') if not self.df.empty else pd.DataFrame(),
             'yahoo': filtrar_datos_yahoo(self.lineEdit.text().strip(), 'cashflow') if not self.df_yahoo.empty else pd.DataFrame(),
-            'macrotrends': filtrar_datos_macrotrends(self.df_macrotrends, 'cashflow') if not self.df_macrotrends.empty else pd.DataFrame()
+            'macrotrends': filtrar_datos_macrotrends(macrotrends_data, 'cashflow') if not macrotrends_data.empty else pd.DataFrame()
         },
         'income': {
             'google': filtrar_datos_google(self.df, 'income') if not self.df.empty else pd.DataFrame(),
             'yahoo': filtrar_datos_yahoo(self.lineEdit.text().strip(), 'income') if not self.df_yahoo.empty else pd.DataFrame(),
-            'macrotrends': filtrar_datos_macrotrends(self.df_macrotrends, 'income') if not self.df_macrotrends.empty else pd.DataFrame()
+            'macrotrends': filtrar_datos_macrotrends(macrotrends_data, 'income') if not macrotrends_data.empty else pd.DataFrame()
         }
     }
     
@@ -247,10 +290,31 @@ def mostrar_todos_los_datos(self):
     # Mostrar datos equivalentes
     mostrar_datos_equivalentes(self)
 
-    # Hacer visibles las casillas de búsqueda
-    self.search_google.setVisible(True)
-    self.search_yahoo.setVisible(True)
-    self.search_macrotrends.setVisible(True)
+    # Asegurar que las casillas de búsqueda están visibles y habilitadas
+    if hasattr(self, 'search_google'):
+        self.search_google.setVisible(True)
+        self.search_google.setEnabled(True)
+    
+    if hasattr(self, 'search_yahoo'):
+        self.search_yahoo.setVisible(True) 
+        self.search_yahoo.setEnabled(True)
+    
+    if hasattr(self, 'search_macrotrends'):
+        self.search_macrotrends.setVisible(True)
+        self.search_macrotrends.setEnabled(True)
+    
+    # Conectar las señales de búsqueda si aún no están conectadas
+    try:
+        self.search_google.textChanged.disconnect()
+        self.search_yahoo.textChanged.disconnect()
+        self.search_macrotrends.textChanged.disconnect()
+    except TypeError:
+        pass  # No hay conexiones previas
+    
+    # Reconectar las señales de búsqueda
+    self.search_google.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView, text))
+    self.search_yahoo.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView_3, text))
+    self.search_macrotrends.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView_4, text))
 
 def mostrar_datos_filtrados(self, data_type):
     if self.df.empty:
@@ -264,9 +328,12 @@ def mostrar_datos_filtrados(self, data_type):
     display_selected_data(self, data_type)  # Mostrar también los datos de Yahoo Finance
 
 def mostrar_datos_filtrados_macrotrends(self, data_type):
-    if self.df_macrotrends.empty:
+    # Corregir para usar macrotrends_df en vez de df_macrotrends
+    if not hasattr(self, 'macrotrends_df') or self.macrotrends_df.empty:
         return
-    filtered_df = filtrar_datos_macrotrends(self.df_macrotrends, data_type)
+    
+    # Usar macrotrends_df en vez de df_macrotrends
+    filtered_df = filtrar_datos_macrotrends(self.macrotrends_df, data_type)
     model = PandasModel(filtered_df)
     self.tableView_4.setModel(model)
     self.tableView_4.resizeColumnsToContents()
@@ -293,7 +360,7 @@ def exportar_datos(self):
     
     google_df = self.df if not self.df.empty else None
     yahoo_df = self.df_yahoo if not self.df_yahoo.empty else None
-    macrotrends_df = self.df_macrotrends if not self.df_macrotrends.empty else None
+    macrotrends_df = self.macrotrends_df if hasattr(self, 'macrotrends_df') and not self.macrotrends_df.empty else None  # Corregir aquí también
     ticker = self.lineEdit.text().strip().upper()
     
     # Call the export function from import_export_handler
@@ -391,10 +458,10 @@ def importar_datos(self):
         self.flujoCajaButton.clicked.connect(lambda: mostrar_datos_filtrados(self, 'cashflow'))
         self.perdidasGananciasButton.clicked.connect(lambda: mostrar_datos_filtrados(self, 'income'))
         
-        # Definir self.df, self.df_yahoo y self.df_macrotrends
+        # Definir self.df, self.df_yahoo y self.macrotrends_df
         self.df = self.data_frames['balance']['google']
         self.df_yahoo = self.data_frames['balance']['yahoo']
-        self.df_macrotrends = self.data_frames['balance']['macrotrends']
+        self.macrotrends_df = self.data_frames['balance']['macrotrends']
         
         # Obtener el nombre de la empresa del nombre del archivo
         ticker = os.path.basename(filename).split('.')[0]
@@ -437,4 +504,25 @@ def mostrar_datos_filtrados(self, data_type):
     self.tableView_4.resizeColumnsToContents()
     self.tableView_4.horizontalHeader().setStretchLastSection(True)
     self.tableView_4.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+
+# Función para filtrar tablas por texto
+def filtrar_tabla_por_texto(self, table_view, text):
+    if not text:
+        # Si el texto está vacío, restaurar todos los datos
+        model = table_view.model()
+        if model:
+            for row in range(model.rowCount()):
+                table_view.setRowHidden(row, False)
+        return
     
+    # Buscar texto en todas las columnas y filas, ocultando las que no coinciden
+    model = table_view.model()
+    if model:
+        for row in range(model.rowCount()):
+            match_found = False
+            for column in range(model.columnCount()):
+                item = model.index(row, column).data()
+                if item and text.lower() in str(item).lower():
+                    match_found = True
+                    break
+            table_view.setRowHidden(row, not match_found)

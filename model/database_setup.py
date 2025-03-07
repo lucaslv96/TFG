@@ -144,8 +144,9 @@ def load_data(cursor):
     default_equivalencias = [
         ('income',1 ,38 , 1 ),
         ('income',6 , 7, 17 ),
-        ('balance',11 , 52 , 25 ),
-        ('cashflow',16 ,25 ,46 ),
+        ('balance',8 , 103 , 23 ),
+        ('balance',11 , 52 , 44 ),
+        ('cashflow',16 ,160 ,46 ),
         ('cashflow', 17,142 ,55 )
     ]
     cursor.executemany('INSERT INTO equivalencias (tipo_dato, google_finance_id, yahoo_finance_id, macrotrends_id) VALUES (?, ?, ?, ?)', default_equivalencias)
