@@ -73,29 +73,115 @@ class ChartWindow(QtWidgets.QWidget):  # Changed from QDialog to QWidget
                         # Get the raw value
                         value = row_data[year]
                         
-                        # Handle different formats
-                        if isinstance(value, str):
-                            # Remove currency symbols, commas as thousand separators, etc.
-                            value = re.sub(r'[^\d.-]', '', value.replace(',', ''))
-                            
-                            # Handle percentages
-                            if '%' in row_data[year]:
-                                value = float(value) / 100 if value else 0
-                            
-                            # Handle millions/billions indicators
-                            if 'M' in row_data[year]:
-                                value = float(value) * 1000000 if value else 0
-                            elif 'B' in row_data[year]:
-                                value = float(value) * 1000000000 if value else 0
-                            else:
-                                value = float(value) if value else 0
-                        elif pd.isna(value) or value == 'N/A':
-                            value = 0
-                    except (ValueError, TypeError):
+                        # Handle different formats based on provider
+                        if provider == 'Google':
+                            if isinstance(value, str):
+                                original_value = value  # Keep for reference
+                                print(f"⚙️ Procesando valor Google: '{original_value}' para {year}")
+                                
+                                # Limpiar espacios especiales y caracteres no deseados
+                                value = value.replace('\xa0', ' ').replace('$', '').strip()
+                                
+                                # IMPORTANTE: Comprobar 'mil M' ANTES de comprobar 'M'
+                                if "mil M" in value:
+                                    print(f"🔍 DETECTADO FORMATO 'mil M': '{value}'")
+                                    # Extraer solo la parte numérica (antes de "mil")
+                                    num_part = value.split("mil")[0].strip()
+                                    print(f"📊 Parte numérica extraída: '{num_part}'")
+                                    
+                                    # Convertir coma decimal a punto
+                                    if "," in num_part:
+                                        num_part = num_part.replace(",", ".")
+                                        print(f"🔄 Coma reemplazada: '{num_part}'")
+                                    
+                                    try:
+                                        # Convertir a float y multiplicar por mil millones
+                                        result = float(num_part) * 1000000000
+                                        print(f"✅ ÉXITO: '{original_value}' → {result:,.2f}")
+                                        value = result
+                                    except Exception as e:
+                                        print(f"❌ ERROR: No se pudo convertir '{num_part}': {e}")
+                                        
+                                        # Intento alternativo: eliminar todos los caracteres no numéricos excepto '.'
+                                        try:
+                                            clean_num = ''.join([c for c in num_part if c.isdigit() or c == '.'])
+                                            result = float(clean_num) * 1000000000
+                                            print(f"🔄 Conversión alternativa: '{clean_num}' → {result:,.2f}")
+                                            value = result
+                                        except:
+                                            print("❌ Falló el método alternativo también")
+                                            value = 0
+                                
+                                # Formato 'M' (sin 'mil')
+                                elif "M" in value and "mil" not in value:
+                                    print(f"🔍 Detectado formato 'M': '{value}'")
+                                    num_part = value.replace("M", "").strip()
+                                    
+                                    # Convertir coma a punto
+                                    if "," in num_part:
+                                        num_part = num_part.replace(",", ".")
+                                    
+                                    try:
+                                        result = float(num_part) * 1000000
+                                        print(f"✅ ÉXITO: '{original_value}' → {result:,.2f}")
+                                        value = result
+                                    except Exception as e:
+                                        print(f"❌ ERROR: {e}")
+                                        value = 0
+                                
+                                # Valores normales
+                                else:
+                                    try:
+                                        if value.strip():
+                                            if "," in value:
+                                                value = value.replace(",", ".")
+                                            value = float(value)
+                                        else:
+                                            value = 0
+                                    except:
+                                        value = 0
+                            elif pd.isna(value) or value == 'N/A':
+                                value = 0
+                        
+                        elif provider == 'Macrotrends':
+                            if isinstance(value, str):
+                                # Remove currency symbols
+                                value = value.replace('$', '')
+                                
+                                # Handle Macrotrends format where comma is used as decimal point
+                                if ',' in value:
+                                    value = value.replace(',', '.')
+                                
+                                # Macrotrends values are in millions without explicit indicator
+                                try:
+                                    value = float(value) * 1000000  # Convert to millions
+                                except:
+                                    value = 0
+                            elif pd.isna(value) or value == 'N/A':
+                                value = 0
+                        
+                        elif provider == 'Yahoo':
+                            # Keep Yahoo values as they are
+                            if isinstance(value, str):
+                                if value.strip() == "" or value == 'N/A':
+                                    value = 0
+                                else:
+                                    # Remove any currency symbols and commas
+                                    value = re.sub(r'[^\d.-]', '', value.replace(',', ''))
+                                    value = float(value) if value else 0
+                            elif pd.isna(value):
+                                value = 0
+                    
+                    except (ValueError, TypeError) as e:
+                        print(f"[ERROR] Failed to process {provider} value '{value}' for {year}: {e}")
                         value = 0
                     
+                    # Verificar el valor final que se añade a la lista
+                    print(f"📈 Valor final para {provider} en {year}: {value:,.2f}")
                     values.append(value)
                 
+                # Mostrar resumen de valores por proveedor
+                print(f"📊 Valores para {provider}: {[f'{v:,.2f}' for v in values]}")
                 self.plot_data[provider.lower()] = values
     
     def init_ui(self):

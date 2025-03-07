@@ -24,7 +24,8 @@ class GoogleFinanceScraper:
             'XCAI', 'XGHA', 'XRSE', 'XSRA', 'XNBO', 'XMAR', 'XTAB', 'XMON', 'XBEL', 'XCAI', 'XBUC',
             'XBKS', 'XKLS', 'XBLS', 'XHCM', 'XLON', 'XMTS', 'XJKT', 'XNEW', 'XCAR', 'XNIL', 'XMNG',
             'XBHR', 'XMNX', 'XDMX', 'XPTF', 'XGIB', 'XJMU', 'XBNK', 'XKBS', 'XMOL', 'XPAR', 'XROM',
-            'XSPC', 'XSAI', 'XSOF', 'XSSX', 'XSWX', 'XTMB', 'XURA', 'XVIE', 'XWBO', 'XTWN', 'XTAS'
+            'XSPC', 'XSAI', 'XSOF', 'XSSX', 'XSWX', 'XTMB', 'XURA', 'XVIE', 'XWBO', 'XTWN', 'XTAS', 
+            'OTCMKTS'
         ]
 
     def verify_exchange(self, ticker):
