@@ -46,7 +46,6 @@ class YahooFinanceScraper:
         for suffix in self.market_suffixes:
             try:
                 full_ticker = ticker + suffix
-                print(f"Probando con {full_ticker}...")
                 
                 company = yf.Ticker(full_ticker)
                 

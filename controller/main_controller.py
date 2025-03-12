@@ -370,16 +370,37 @@ def mostrar_todos_los_datos(self):
         self.tableView_4.horizontalHeader().setStretchLastSection(True)
         self.tableView_4.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
-    # Obtener el nombre de la empresa y actualizar las etiquetas
-    yahoo_scraper = YahooFinanceScraper()
-    company_name = yahoo_scraper.get_company_name(self.lineEdit.text().strip())
+    # Obtener el nombre de la empresa y actualizar las etiquetas solo si hay datos
     _translate = QtCore.QCoreApplication.translate
-    self.label_2.setText(_translate("MainWindow", f"Datos de Google Finance - {company_name}"))
-    self.label_4.setText(_translate("MainWindow", f"Datos de Yahoo Finance - {company_name}"))
-    self.label_5.setText(_translate("MainWindow", f"Datos de Macrotrends - {company_name}"))
-    self.label_equivalentes.setText(_translate("MainWindow", f"Datos Equivalentes - {company_name}"))
+    
+    # Actualizar el nombre de la empresa solo para las fuentes que devolvieron datos
+    ticker = self.lineEdit.text().strip()
+    yahoo_scraper = YahooFinanceScraper()
+    company_name = yahoo_scraper.get_company_name(ticker)
+    
+    # Solo mostrar el nombre de la empresa en las etiquetas de las fuentes que tienen datos
+    if not self.df.empty:
+        self.label_2.setText(_translate("MainWindow", f"Datos de Google Finance - {company_name}"))
+    else:
+        self.label_2.setText(_translate("MainWindow", "Datos de Google Finance"))
+        
+    if not self.df_yahoo.empty:
+        self.label_4.setText(_translate("MainWindow", f"Datos de Yahoo Finance - {company_name}"))
+    else:
+        self.label_4.setText(_translate("MainWindow", "Datos de Yahoo Finance"))
+        
+    if not self.df_macrotrends.empty:
+        self.label_5.setText(_translate("MainWindow", f"Datos de Macrotrends - {company_name}"))
+    else:
+        self.label_5.setText(_translate("MainWindow", "Datos de Macrotrends"))
+    
+    # Solo mostrar el nombre en la pestaña de datos equivalentes si al menos una fuente tiene datos
+    if not self.df.empty or not self.df_yahoo.empty or not self.df_macrotrends.empty:
+        self.label_equivalentes.setText(_translate("MainWindow", f"Datos Equivalentes - {company_name}"))
+    else:
+        self.label_equivalentes.setText(_translate("MainWindow", "Datos Equivalentes"))
 
-    # Mostrar datos equivalentes
+    # Mostrar datos equivalentes en cualquier caso (incluso si alguna búsqueda falló)
     mostrar_datos_equivalentes(self)
 
     # Hacer visibles las casillas de búsqueda
@@ -544,10 +565,26 @@ def importar_datos(self):
         # Actualizar el mensaje de estado para indicar que los datos se han cargado exitosamente
         self.statusLabel.setText("Datos cargados con éxito")
         
-        # Mostrar datos equivalentes
+        # Establecer el contador de trabajos finalizados como si fuera una búsqueda completa
+        self.trabajadores_finalizados = 3
+        
+        # Mostrar datos equivalentes y asegurar que los controles de filtrado sean visibles
         mostrar_datos_equivalentes(self)
         
+        # Hacer visible el frame del selector de años si existe
+        if hasattr(self, 'saved_filter_frame') and self.saved_filter_frame is not None:
+            self.saved_filter_frame.setVisible(True)
+        
+        # También hacemos visible el combobox directamente si existe
+        if hasattr(self, 'year_filter_combobox') and self.year_filter_combobox is not None:
+            self.year_filter_combobox.setVisible(True)
+            
+        # Si hay una etiqueta del filtro, también la hacemos visible
+        if hasattr(self, 'year_filter_label') and self.year_filter_label is not None:
+            self.year_filter_label.setVisible(True)
+        
         QtWidgets.QMessageBox.information(None, "Importar", "Datos importados exitosamente.")
+
 def mostrar_datos_filtrados(self, data_type):
     if self.data_frames[data_type]['google'].empty:
         return

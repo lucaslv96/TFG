@@ -99,20 +99,21 @@ NON_NUMERIC_PATTERN = r'[^\d.-]'
 
 def mostrar_datos_equivalentes(self):
     # Si hay un frame guardado de una búsqueda anterior, hacerlo visible nuevamente
-    # Pero solo si la búsqueda ha finalizado (comprobando si trabajadores_finalizados es 3)
+    # Mostramos los controles si: 
+    # 1. La búsqueda ha finalizado (trabajadores_finalizados = 3) o
+    # 2. Estamos importando datos desde archivo (no hay trabajadores_finalizados pero hay datos)
+    should_show_controls = (hasattr(self, 'trabajadores_finalizados') and self.trabajadores_finalizados == 3) or \
+                           (hasattr(self, 'data_frames') and not all(df.empty for tipo in self.data_frames.values() 
+                                                                   for df in tipo.values()))
+    
     if hasattr(self, 'saved_filter_frame') and self.saved_filter_frame is not None:
-        if hasattr(self, 'trabajadores_finalizados') and self.trabajadores_finalizados == 3:
-            self.saved_filter_frame.setVisible(True)
-        else:
-            # Si la búsqueda aún está en curso, mantener oculto el frame
-            self.saved_filter_frame.setVisible(False)
+        self.saved_filter_frame.setVisible(should_show_controls)
             
     # También revisar el combobox y label directamente
     if hasattr(self, 'year_filter_combobox') and self.year_filter_combobox is not None:
-        visible = hasattr(self, 'trabajadores_finalizados') and self.trabajadores_finalizados == 3
-        self.year_filter_combobox.setVisible(visible)
+        self.year_filter_combobox.setVisible(should_show_controls)
         if hasattr(self, 'year_filter_label'):
-            self.year_filter_label.setVisible(visible)
+            self.year_filter_label.setVisible(should_show_controls)
     
     # Verificar si el ComboBox de años ya existe, si no, crearlo
     if not hasattr(self, 'year_filter_combobox') or self.year_filter_combobox is None:
@@ -217,7 +218,7 @@ def mostrar_datos_equivalentes(self):
     income_df = df_equivalentes[df_equivalentes[TIPO] == "income"].drop(columns=[TIPO])
 
     # Determinar qué columnas mostrar según la selección del filtro de años
-    selected_year = self.year_filter_combobox.currentText()
+    selected_year = self.year_filter_combobox.currentText() if hasattr(self, 'year_filter_combobox') else "Todos los años"
     if selected_year == "Todos los años":
         years_columns = ["2024", "2023", "2022", "2021"]  # Actualizado para incluir 2024
     else:
@@ -237,23 +238,32 @@ def mostrar_datos_equivalentes(self):
         yahoo_inicial = balance_df.iloc[i][YAHOO_INICIAL]
         macrotrends_inicial = balance_df.iloc[i][MACROTRENDS_INICIAL]
 
+        # Asegurar que self.data_frames existe antes de usarlo
+        if not hasattr(self, 'data_frames'):
+            # Si no existe, crear un diccionario vacío con la estructura necesaria
+            self.data_frames = {
+                'balance': {'google': pd.DataFrame(), 'yahoo': pd.DataFrame(), 'macrotrends': pd.DataFrame()},
+                'cashflow': {'google': pd.DataFrame(), 'yahoo': pd.DataFrame(), 'macrotrends': pd.DataFrame()},
+                'income': {'google': pd.DataFrame(), 'yahoo': pd.DataFrame(), 'macrotrends': pd.DataFrame()}
+            }
+
         # Obtener todos los valores anuales primero, con manejo seguro de errores
         try:
             google_row_values = ["Google", google_value] + self.data_frames['balance']['google'].loc[self.data_frames['balance']['google']['Datos'] == google_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError):
+        except (KeyError, IndexError, ValueError, AttributeError):
             google_row_values = ["Google", google_value] + ["N/A", "N/A", "N/A", "N/A"]
         
         try:
             yahoo_row_values = ["Yahoo", yahoo_value] + self.data_frames['balance']['yahoo'].loc[self.data_frames['balance']['yahoo']['Datos'] == yahoo_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError):
+        except (KeyError, IndexError, ValueError, AttributeError):
             yahoo_row_values = ["Yahoo", yahoo_value] + ["N/A", "N/A", "N/A", "N/A"]
         
         try:
             macrotrends_row_values = ["Macrotrends", macrotrends_value] + self.data_frames['balance']['macrotrends'].loc[self.data_frames['balance']['macrotrends']['Datos'] == macrotrends_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError):
+        except (KeyError, IndexError, ValueError, AttributeError):
             macrotrends_row_values = ["Macrotrends", macrotrends_value] + ["N/A", "N/A", "N/A", "N/A"]
 
-        # Asegurarse de que todos los rows tienen la longitud correcta (base_columns + todos los años)
+        # Asegurarse de que todos los rows tienen la longitud correcta antes de crear el diccionario
         all_years = ["2024", "2023", "2022", "2021"]
         
         # Asegurarse de que los valores tienen la longitud correcta antes de crear el diccionario

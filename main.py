@@ -33,9 +33,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         QApplication.quit()
 
 def main():
-    # Initialize the database
     initialize_database()
-    
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon('resources/icon.ico'))
     window = MainWindow()
