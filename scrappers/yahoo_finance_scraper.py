@@ -2,65 +2,125 @@ import yfinance as yf
 import pandas as pd
 
 class YahooFinanceScraper:
-    def get_financial_data(self, ticker, data_type='balance'):
-        """Obtiene los datos financieros de la empresa a partir del ticker de Yahoo Finance."""
-        try:
-            # Obtener el objeto de datos financieros
-            company = yf.Ticker(ticker)
+    def __init__(self):
+        self.market_suffixes = [
+            '.DE', '.F', '.MC', '.MA', '.PA', '.L', '.MI', '.AS', '.BR', 
+            '.VI', '.ST', '.CO', '.OL', '.LS', '.SW', '.HE', '.IR', '.AT', 
+            '.TO', '.MX', '.SA', '.T', '.HK', '.SG', '.AX', '.NZ', '.KS', 
+            '.TW', ''
+        ]
 
+    def get_financial_data(self, ticker, data_type='balance'):
+        """Obtiene los datos financieros a partir del ticker, intentando primero sin sufijos."""
+        try:
+            # Intentar primero con el ticker original
+            company = yf.Ticker(ticker)
+            
+            # Obtener datos según el tipo solicitado
             if data_type == 'balance':
-                # Obtener el balance anual (annual balance sheet) en formato de DataFrame
                 data = company.balance_sheet
             elif data_type == 'income':
-                # Obtener la cuenta de resultados anual (annual income statement) en formato de DataFrame
                 data = company.financials
             elif data_type == 'cashflow':
-                # Obtener el flujo de caja anual (annual cash flow statement) en formato de DataFrame
                 data = company.cashflow
             else:
                 return pd.DataFrame()
-
-            # Filtrar solo los últimos años
+            
+            # Si tenemos datos válidos, procesarlos y devolverlos
             if not data.empty:
-                data = data.iloc[:, :4]  # Seleccionar las primeras cuatro columnas (últimos cuatro años)
+                data = data.iloc[:, :4]  # Seleccionar las primeras cuatro columnas
+                data.columns = [f"{col.year}" for col in data.columns]
+                data.reset_index(inplace=True)
+                data.rename(columns={'index': 'Datos'}, inplace=True)
+                return data
+                
+            # Si no hay datos, intentar con sufijos
+            return self._try_with_suffixes(ticker, data_type)
+            
+        except Exception as e:
+            return self._try_with_suffixes(ticker, data_type)
 
-                # Eliminar filas que contienen NaN
-                #data = data.dropna()
-
-            # Añadir las fechas como encabezados de columna
-            data.columns = [f"{col.year}" for col in data.columns]
-
-            # Renombrar la primera columna a 'Datos'
-            data.reset_index(inplace=True)
-            data.rename(columns={'index': 'Datos'}, inplace=True)
-
-            return data
-        except Exception:
-            return pd.DataFrame()
+    def _try_with_suffixes(self, ticker, data_type):
+        print(f"Intentando ticker {ticker} con diferentes sufijos de mercado...")
+        
+        for suffix in self.market_suffixes:
+            try:
+                full_ticker = ticker + suffix
+                print(f"Probando con {full_ticker}...")
+                
+                company = yf.Ticker(full_ticker)
+                
+                if data_type == 'balance':
+                    data = company.balance_sheet
+                elif data_type == 'income':
+                    data = company.financials
+                elif data_type == 'cashflow':
+                    data = company.cashflow
+                else:
+                    data = pd.DataFrame()
+                
+                if not data.empty:
+                    data = data.iloc[:, :4]
+                    data.columns = [f"{col.year}" for col in data.columns]
+                    data.reset_index(inplace=True)
+                    data.rename(columns={'index': 'Datos'}, inplace=True)
+                    
+                    return data
+            except Exception as e:
+                print(f"Error con {ticker + suffix}: {e}")
+        
+        return pd.DataFrame()
 
     def get_company_name(self, ticker):
-        """Obtiene el nombre de la empresa a partir del ticker de Yahoo Finance."""
+        """Obtiene el nombre de la empresa a partir del ticker, intentando primero sin sufijos."""
         try:
+            # Primero intentar con el ticker original
             company = yf.Ticker(ticker)
-            return company.info['longName']
+            info = company.info
+            
+            if 'longName' in info and info['longName']:
+                return info['longName']
+                
+            # Si no encontramos el nombre, probar con sufijos
+            for suffix in self.market_suffixes:
+                if suffix == '':  # Saltar el sufijo vacío, ya lo intentamos
+                    continue
+                    
+                try:
+                    company = yf.Ticker(ticker + suffix)
+                    info = company.info
+                    if 'longName' in info and info['longName']:
+                        return info['longName']
+                except:
+                    continue
+                    
+            return "Nombre de la empresa no disponible"
         except Exception:
+            # Si hay error con el ticker original, intentar con sufijos
+            for suffix in self.market_suffixes:
+                if suffix == '':  # Saltar el sufijo vacío, ya lo intentamos
+                    continue
+                    
+                try:
+                    company = yf.Ticker(ticker + suffix)
+                    info = company.info
+                    if 'longName' in info and info['longName']:
+                        return info['longName']
+                except:
+                    continue
+            
             return "Nombre de la empresa no disponible"
 
     def get_combined_financial_data(self, ticker):
-        """Obtiene el balance, la cuenta de resultados y el flujo de caja de los últimos años de la empresa en un solo DataFrame."""
         balance_data = self.get_financial_data(ticker, 'balance')
         income_data = self.get_financial_data(ticker, 'income')
         cashflow_data = self.get_financial_data(ticker, 'cashflow')
-
-        if balance_data.empty and income_data.empty and cashflow_data.empty:
-            for suffix in self.market_suffixes:
-                balance_data = self.get_financial_data(ticker + suffix, 'balance')
-                income_data = self.get_financial_data(ticker + suffix, 'income')
-                cashflow_data = self.get_financial_data(ticker + suffix, 'cashflow')
-                if not balance_data.empty or not income_data.empty or not cashflow_data.empty:
-                    break
-
+        
         combined_data = pd.concat([balance_data, income_data, cashflow_data], axis=0)
-        combined_data.reset_index(inplace=True)  # Ensure the index is reset to include the labels
-        combined_data.rename(columns={'index': 'Datos'}, inplace=True)  # Rename the index column to 'Datos'
+        
+        if not combined_data.empty:
+            combined_data.reset_index(inplace=True, drop=True)
+        else:
+            combined_data = pd.DataFrame(columns=["Datos", "2024", "2023", "2022", "2021"])
+            
         return combined_data

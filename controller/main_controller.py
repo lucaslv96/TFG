@@ -53,6 +53,14 @@ def buscar_datos(self):
         self.progressBar.setVisible(True)
         self.progressBar.setValue(0)
         
+        # Asegurarse de que los campos de búsqueda estén siempre visibles y habilitados
+        self.search_google.setVisible(True)
+        self.search_yahoo.setVisible(True)
+        self.search_macrotrends.setVisible(True)
+        self.search_google.setEnabled(True)
+        self.search_yahoo.setEnabled(True)
+        self.search_macrotrends.setEnabled(True)
+        
         # Vaciar todas las tablas antes de realizar una nueva búsqueda
         self.tableView.setModel(PandasModel(pd.DataFrame()))
         self.tableView_3.setModel(PandasModel(pd.DataFrame()))
@@ -103,10 +111,10 @@ def buscar_datos(self):
         self.lineEdit.setEnabled(False)
         self.pushButton.setEnabled(False)
         
-        # Reiniciar los dataframes y asegurar que los atributos existen
+        # Reiniciar los dataframes
         self.google_df = pd.DataFrame()
         self.yahoo_df = pd.DataFrame()
-        self.macrotrends_df = pd.DataFrame()  # Asegurar que este atributo existe
+        self.macrotrends_df = pd.DataFrame()
 
         # Inicializar el contador de trabajadores finalizados
         self.trabajadores_finalizados = 0
@@ -115,17 +123,6 @@ def buscar_datos(self):
         self.balanceButton.setVisible(False)
         self.flujoCajaButton.setVisible(False)
         self.perdidasGananciasButton.setVisible(False)
-        
-        # Asegurar que las casillas de búsqueda están visibles y habilitadas
-        self.search_google.setVisible(True)
-        self.search_yahoo.setVisible(True)
-        self.search_macrotrends.setVisible(True)
-        self.search_google.setEnabled(True)
-        self.search_yahoo.setEnabled(True)
-        self.search_macrotrends.setEnabled(True)
-        self.search_google.clear()  # Limpiar el contenido de las casillas
-        self.search_yahoo.clear()
-        self.search_macrotrends.clear()
         
         # Iniciar los trabajadores para obtener datos
         self.google_worker = Worker(ticker)
@@ -141,27 +138,153 @@ def buscar_datos(self):
         self.macrotrends_worker.start()
 
 def mostrar_datos_google(self, df):
-    #print("Mostrando datos de Google:", df)
     self.google_df = df
     self.trabajadores_finalizados += 1  # Incrementar contador
     self.statusLabel.setText(f"{self.trabajadores_finalizados}/3 búsquedas completadas")
     self.progressBar.setValue(int((self.trabajadores_finalizados / 3) * 100))  # Convert to int
+    
+    # Si no hay datos, crear una interfaz para buscar un ticker alternativo
+    if df.empty:
+        if not hasattr(self, 'google_alt_label'):
+            # Crear elementos para búsqueda alternativa
+            self.google_alt_label = QtWidgets.QLabel("No se encontraron datos para Google Finance. Intente con otro ticker:", self.tab)
+            self.google_alt_label.setStyleSheet("color: #FF0000; font-weight: bold;") # Texto en rojo y negrita
+            
+            self.google_alt_edit = QtWidgets.QLineEdit(self.tab)
+            self.google_alt_edit.setStyleSheet("border: 1px solid #FF0000;") # Borde rojo
+            
+            self.google_alt_button = QtWidgets.QPushButton("Buscar", self.tab)
+            self.google_alt_button.setStyleSheet("""
+                background-color: #FF0000; 
+                color: white; 
+                font-weight: bold; 
+                border-radius: 3px;
+                padding: 5px;
+            """) # Botón con fondo rojo y texto blanco
+            
+            self.google_alt_button.clicked.connect(lambda: buscar_google_alternativo(self, self.google_alt_edit.text()))
+            
+            # Añadir los elementos al layout
+            self.google_alt_layout = QtWidgets.QHBoxLayout()
+            self.google_alt_layout.addWidget(self.google_alt_label)
+            self.google_alt_layout.addWidget(self.google_alt_edit)
+            self.google_alt_layout.addWidget(self.google_alt_button)
+            
+            # Insertar el layout después del encabezado de Google Finance
+            index = self.tabLayout.indexOf(self.tableView)
+            self.tabLayout.insertLayout(index, self.google_alt_layout)
+        else:
+            # Solo hacer visible si ya existe
+            self.google_alt_label.setVisible(True)
+            self.google_alt_edit.setVisible(True)
+            self.google_alt_button.setVisible(True)
+    else:
+        # Si hay datos, ocultar la interfaz alternativa si existe
+        if hasattr(self, 'google_alt_label'):
+            self.google_alt_label.setVisible(False)
+            self.google_alt_edit.setVisible(False)
+            self.google_alt_button.setVisible(False)
+
     verificar_datos(self)
 
 def mostrar_datos_yahoo(self, df):
-    #print("Mostrando datos de Yahoo:", df)
     self.yahoo_df = df
     self.trabajadores_finalizados += 1  # Incrementar contador
     self.statusLabel.setText(f"{self.trabajadores_finalizados}/3 búsquedas completadas")
     self.progressBar.setValue(int((self.trabajadores_finalizados / 3) * 100))  # Convert to int
+    
+    # Si no hay datos, crear una interfaz para buscar un ticker alternativo
+    if df.empty:
+        if not hasattr(self, 'yahoo_alt_label'):
+            # Crear elementos para búsqueda alternativa
+            self.yahoo_alt_label = QtWidgets.QLabel("No se encontraron datos para Yahoo Finance. Intente con otro ticker:", self.tab)
+            self.yahoo_alt_label.setStyleSheet("color: #FF0000; font-weight: bold;") # Texto en rojo y negrita
+            
+            self.yahoo_alt_edit = QtWidgets.QLineEdit(self.tab)
+            self.yahoo_alt_edit.setStyleSheet("border: 1px solid #FF0000;") # Borde rojo
+            
+            self.yahoo_alt_button = QtWidgets.QPushButton("Buscar", self.tab)
+            self.yahoo_alt_button.setStyleSheet("""
+                background-color: #FF0000; 
+                color: white; 
+                font-weight: bold; 
+                border-radius: 3px;
+                padding: 5px;
+            """) # Botón con fondo rojo y texto blanco
+            
+            self.yahoo_alt_button.clicked.connect(lambda: buscar_yahoo_alternativo(self, self.yahoo_alt_edit.text()))
+            
+            # Añadir los elementos al layout
+            self.yahoo_alt_layout = QtWidgets.QHBoxLayout()
+            self.yahoo_alt_layout.addWidget(self.yahoo_alt_label)
+            self.yahoo_alt_layout.addWidget(self.yahoo_alt_edit)
+            self.yahoo_alt_layout.addWidget(self.yahoo_alt_button)
+            
+            # Insertar el layout después del encabezado de Yahoo Finance
+            index = self.tabLayout.indexOf(self.tableView_3)
+            self.tabLayout.insertLayout(index, self.yahoo_alt_layout)
+        else:
+            # Solo hacer visible si ya existe
+            self.yahoo_alt_label.setVisible(True)
+            self.yahoo_alt_edit.setVisible(True)
+            self.yahoo_alt_button.setVisible(True)
+    else:
+        # Si hay datos, ocultar la interfaz alternativa si existe
+        if hasattr(self, 'yahoo_alt_label'):
+            self.yahoo_alt_label.setVisible(False)
+            self.yahoo_alt_edit.setVisible(False)
+            self.yahoo_alt_button.setVisible(False)
+
     verificar_datos(self)
 
 def mostrar_datos_macrotrends(self, df):
-    # Corregimos aquí para asignar a self.macrotrends_df en lugar de self.df_macrotrends
-    self.macrotrends_df = df  # Este es el problema, estaba usando el nombre incorrecto
-    self.trabajadores_finalizados += 1
+    self.macrotrends_df = df
+    self.trabajadores_finalizados += 1  # Incrementar contador
     self.statusLabel.setText(f"{self.trabajadores_finalizados}/3 búsquedas completadas")
-    self.progressBar.setValue(int((self.trabajadores_finalizados / 3) * 100))
+    self.progressBar.setValue(int((self.trabajadores_finalizados / 3) * 100))  # Convert to int
+    
+    # Si no hay datos, crear una interfaz para buscar un ticker alternativo
+    if df.empty:
+        if not hasattr(self, 'macrotrends_alt_label'):
+            # Crear elementos para búsqueda alternativa
+            self.macrotrends_alt_label = QtWidgets.QLabel("No se encontraron datos para Macrotrends. Intente con otro ticker:", self.tab)
+            self.macrotrends_alt_label.setStyleSheet("color: #FF0000; font-weight: bold;") # Texto en rojo y negrita
+            
+            self.macrotrends_alt_edit = QtWidgets.QLineEdit(self.tab)
+            self.macrotrends_alt_edit.setStyleSheet("border: 1px solid #FF0000;") # Borde rojo
+            
+            self.macrotrends_alt_button = QtWidgets.QPushButton("Buscar", self.tab)
+            self.macrotrends_alt_button.setStyleSheet("""
+                background-color: #FF0000; 
+                color: white; 
+                font-weight: bold; 
+                border-radius: 3px;
+                padding: 5px;
+            """) # Botón con fondo rojo y texto blanco
+            
+            self.macrotrends_alt_button.clicked.connect(lambda: buscar_macrotrends_alternativo(self, self.macrotrends_alt_edit.text()))
+            
+            # Añadir los elementos al layout
+            self.macrotrends_alt_layout = QtWidgets.QHBoxLayout()
+            self.macrotrends_alt_layout.addWidget(self.macrotrends_alt_label)
+            self.macrotrends_alt_layout.addWidget(self.macrotrends_alt_edit)
+            self.macrotrends_alt_layout.addWidget(self.macrotrends_alt_button)
+            
+            # Insertar el layout después del encabezado de Macrotrends
+            index = self.tabLayout.indexOf(self.tableView_4)
+            self.tabLayout.insertLayout(index, self.macrotrends_alt_layout)
+        else:
+            # Solo hacer visible si ya existe
+            self.macrotrends_alt_label.setVisible(True)
+            self.macrotrends_alt_edit.setVisible(True)
+            self.macrotrends_alt_button.setVisible(True)
+    else:
+        # Si hay datos, ocultar la interfaz alternativa si existe
+        if hasattr(self, 'macrotrends_alt_label'):
+            self.macrotrends_alt_label.setVisible(False)
+            self.macrotrends_alt_edit.setVisible(False)
+            self.macrotrends_alt_button.setVisible(False)
+
     verificar_datos(self)
 
 def verificar_datos(self):
@@ -172,68 +295,37 @@ def verificar_datos(self):
     # Una vez completada la búsqueda, hacer visible el frame si existe
     if hasattr(self, 'saved_filter_frame') and self.saved_filter_frame is not None:
         self.saved_filter_frame.setVisible(True)
-        
-    # Asegurar que las casillas de búsqueda estén visibles y habilitadas al finalizar la búsqueda
-    if hasattr(self, 'search_google'):
-        self.search_google.setVisible(True)
-        self.search_google.setEnabled(True)
-        self.search_google.clear()
-        
-    if hasattr(self, 'search_yahoo'):
-        self.search_yahoo.setVisible(True)
-        self.search_yahoo.setEnabled(True)
-        self.search_yahoo.clear()
-        
-    if hasattr(self, 'search_macrotrends'):
-        self.search_macrotrends.setVisible(True)
-        self.search_macrotrends.setEnabled(True)
-        self.search_macrotrends.clear()
-    
-    # Conectar las señales de búsqueda
-    try:
-        # Desconectar señales previas primero
-        self.search_google.textChanged.disconnect()
-        self.search_yahoo.textChanged.disconnect()
-        self.search_macrotrends.textChanged.disconnect()
-    except (TypeError, AttributeError):
-        pass  # No hay problema si no están conectadas
-    
-    # Conectar nuevamente las señales de búsqueda
-    self.search_google.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView, text))
-    self.search_yahoo.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView_3, text))
-    self.search_macrotrends.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView_4, text))
 
     mostrar_todos_los_datos(self)
     self.statusLabel.setText("Búsqueda completada")
-    self.progressBar.setVisible(False)
+    self.progressBar.setVisible(False)  # Hide the progress bar after completion
 
 def mostrar_todos_los_datos(self):
     print("Mostrando todos los datos")
     self.lineEdit.setEnabled(True)
     self.pushButton.setEnabled(True)
     
-    # Corregimos aquí para usar self.macrotrends_df en lugar de self.df_macrotrends
-    self.df = self.google_df if not self.google_df.empty else pd.DataFrame()
-    self.df_yahoo = self.yahoo_df if not self.yahoo_df.empty else pd.DataFrame()
-    # Usar el nombre de atributo correcto
-    macrotrends_data = self.macrotrends_df if hasattr(self, 'macrotrends_df') and not self.macrotrends_df.empty else pd.DataFrame()
+    # Corregir el error: verificar si el atributo existe antes de comprobar si está vacío
+    self.df = self.google_df if hasattr(self, 'google_df') and not self.google_df.empty else pd.DataFrame()
+    self.df_yahoo = self.yahoo_df if hasattr(self, 'yahoo_df') and not self.yahoo_df.empty else pd.DataFrame()
+    self.df_macrotrends = self.macrotrends_df if hasattr(self, 'macrotrends_df') and not self.macrotrends_df.empty else pd.DataFrame()
     
-    # Definir self.data_frames con manejo seguro de macrotrends_data
+    # Definir self.data_frames
     self.data_frames = {
         'balance': {
             'google': filtrar_datos_google(self.df, 'balance') if not self.df.empty else pd.DataFrame(),
             'yahoo': filtrar_datos_yahoo(self.lineEdit.text().strip(), 'balance') if not self.df_yahoo.empty else pd.DataFrame(),
-            'macrotrends': filtrar_datos_macrotrends(macrotrends_data, 'balance') if not macrotrends_data.empty else pd.DataFrame()
+            'macrotrends': filtrar_datos_macrotrends(self.df_macrotrends, 'balance') if not self.df_macrotrends.empty else pd.DataFrame()
         },
         'cashflow': {
             'google': filtrar_datos_google(self.df, 'cashflow') if not self.df.empty else pd.DataFrame(),
             'yahoo': filtrar_datos_yahoo(self.lineEdit.text().strip(), 'cashflow') if not self.df_yahoo.empty else pd.DataFrame(),
-            'macrotrends': filtrar_datos_macrotrends(macrotrends_data, 'cashflow') if not macrotrends_data.empty else pd.DataFrame()
+            'macrotrends': filtrar_datos_macrotrends(self.df_macrotrends, 'cashflow') if not self.df_macrotrends.empty else pd.DataFrame()
         },
         'income': {
             'google': filtrar_datos_google(self.df, 'income') if not self.df.empty else pd.DataFrame(),
             'yahoo': filtrar_datos_yahoo(self.lineEdit.text().strip(), 'income') if not self.df_yahoo.empty else pd.DataFrame(),
-            'macrotrends': filtrar_datos_macrotrends(macrotrends_data, 'income') if not macrotrends_data.empty else pd.DataFrame()
+            'macrotrends': filtrar_datos_macrotrends(self.df_macrotrends, 'income') if not self.df_macrotrends.empty else pd.DataFrame()
         }
     }
     
@@ -290,31 +382,10 @@ def mostrar_todos_los_datos(self):
     # Mostrar datos equivalentes
     mostrar_datos_equivalentes(self)
 
-    # Asegurar que las casillas de búsqueda están visibles y habilitadas
-    if hasattr(self, 'search_google'):
-        self.search_google.setVisible(True)
-        self.search_google.setEnabled(True)
-    
-    if hasattr(self, 'search_yahoo'):
-        self.search_yahoo.setVisible(True) 
-        self.search_yahoo.setEnabled(True)
-    
-    if hasattr(self, 'search_macrotrends'):
-        self.search_macrotrends.setVisible(True)
-        self.search_macrotrends.setEnabled(True)
-    
-    # Conectar las señales de búsqueda si aún no están conectadas
-    try:
-        self.search_google.textChanged.disconnect()
-        self.search_yahoo.textChanged.disconnect()
-        self.search_macrotrends.textChanged.disconnect()
-    except TypeError:
-        pass  # No hay conexiones previas
-    
-    # Reconectar las señales de búsqueda
-    self.search_google.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView, text))
-    self.search_yahoo.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView_3, text))
-    self.search_macrotrends.textChanged.connect(lambda text: filtrar_tabla_por_texto(self, self.tableView_4, text))
+    # Hacer visibles las casillas de búsqueda
+    self.search_google.setVisible(True)
+    self.search_yahoo.setVisible(True)
+    self.search_macrotrends.setVisible(True)
 
 def mostrar_datos_filtrados(self, data_type):
     if self.df.empty:
@@ -328,12 +399,9 @@ def mostrar_datos_filtrados(self, data_type):
     display_selected_data(self, data_type)  # Mostrar también los datos de Yahoo Finance
 
 def mostrar_datos_filtrados_macrotrends(self, data_type):
-    # Corregir para usar macrotrends_df en vez de df_macrotrends
-    if not hasattr(self, 'macrotrends_df') or self.macrotrends_df.empty:
+    if self.df_macrotrends.empty:
         return
-    
-    # Usar macrotrends_df en vez de df_macrotrends
-    filtered_df = filtrar_datos_macrotrends(self.macrotrends_df, data_type)
+    filtered_df = filtrar_datos_macrotrends(self.df_macrotrends, data_type)
     model = PandasModel(filtered_df)
     self.tableView_4.setModel(model)
     self.tableView_4.resizeColumnsToContents()
@@ -360,7 +428,7 @@ def exportar_datos(self):
     
     google_df = self.df if not self.df.empty else None
     yahoo_df = self.df_yahoo if not self.df_yahoo.empty else None
-    macrotrends_df = self.macrotrends_df if hasattr(self, 'macrotrends_df') and not self.macrotrends_df.empty else None  # Corregir aquí también
+    macrotrends_df = self.df_macrotrends if not self.df_macrotrends.empty else None
     ticker = self.lineEdit.text().strip().upper()
     
     # Call the export function from import_export_handler
@@ -458,10 +526,10 @@ def importar_datos(self):
         self.flujoCajaButton.clicked.connect(lambda: mostrar_datos_filtrados(self, 'cashflow'))
         self.perdidasGananciasButton.clicked.connect(lambda: mostrar_datos_filtrados(self, 'income'))
         
-        # Definir self.df, self.df_yahoo y self.macrotrends_df
+        # Definir self.df, self.df_yahoo y self.df_macrotrends
         self.df = self.data_frames['balance']['google']
         self.df_yahoo = self.data_frames['balance']['yahoo']
-        self.macrotrends_df = self.data_frames['balance']['macrotrends']
+        self.df_macrotrends = self.data_frames['balance']['macrotrends']
         
         # Obtener el nombre de la empresa del nombre del archivo
         ticker = os.path.basename(filename).split('.')[0]
@@ -505,24 +573,194 @@ def mostrar_datos_filtrados(self, data_type):
     self.tableView_4.horizontalHeader().setStretchLastSection(True)
     self.tableView_4.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
 
-# Función para filtrar tablas por texto
-def filtrar_tabla_por_texto(self, table_view, text):
-    if not text:
-        # Si el texto está vacío, restaurar todos los datos
-        model = table_view.model()
-        if model:
-            for row in range(model.rowCount()):
-                table_view.setRowHidden(row, False)
+# Funciones para buscar con tickers alternativos
+def buscar_google_alternativo(self, ticker):
+    if not ticker.strip():
         return
     
-    # Buscar texto en todas las columnas y filas, ocultando las que no coinciden
-    model = table_view.model()
-    if model:
-        for row in range(model.rowCount()):
-            match_found = False
-            for column in range(model.columnCount()):
-                item = model.index(row, column).data()
-                if item and text.lower() in str(item).lower():
-                    match_found = True
-                    break
-            table_view.setRowHidden(row, not match_found)
+    self.statusLabel.setText("Buscando datos de Google Finance...")
+    
+    try:
+        # Crear y ejecutar un worker para la búsqueda alternativa
+        self.google_alt_worker = Worker(ticker.strip())
+        self.google_alt_worker.result.connect(lambda df: actualizar_datos_google(self, df))
+        
+        # Deshabilitar el botón mientras se busca
+        if hasattr(self, 'google_alt_button'):
+            self.google_alt_button.setEnabled(False)
+            self.google_alt_button.setText("Buscando...")
+        
+        self.google_alt_worker.start()
+    except Exception as e:
+        self.statusLabel.setText(f"Error al buscar: {str(e)}")
+        if hasattr(self, 'google_alt_button'):
+            self.google_alt_button.setEnabled(True)
+            self.google_alt_button.setText("Buscar")
+
+def buscar_yahoo_alternativo(self, ticker):
+    if not ticker.strip():
+        return
+    
+    self.statusLabel.setText("Buscando datos de Yahoo Finance...")
+    
+    try:
+        # Crear y ejecutar un worker para la búsqueda alternativa
+        self.yahoo_alt_worker = YahooWorker(ticker.strip(), 'balance')
+        self.yahoo_alt_worker.result.connect(lambda df: actualizar_datos_yahoo(self, df))
+        
+        # Deshabilitar el botón mientras se busca
+        if hasattr(self, 'yahoo_alt_button'):
+            self.yahoo_alt_button.setEnabled(False)
+            self.yahoo_alt_button.setText("Buscando...")
+        
+        self.yahoo_alt_worker.start()
+    except Exception as e:
+        self.statusLabel.setText(f"Error al buscar: {str(e)}")
+        if hasattr(self, 'yahoo_alt_button'):
+            self.yahoo_alt_button.setEnabled(True)
+            self.yahoo_alt_button.setText("Buscar")
+
+def buscar_macrotrends_alternativo(self, ticker):
+    if not ticker.strip():
+        return
+    
+    self.statusLabel.setText("Buscando datos de Macrotrends...")
+    
+    try:
+        # Crear y ejecutar un worker para la búsqueda alternativa
+        self.macrotrends_alt_worker = MacrotrendsWorker(ticker.strip())
+        self.macrotrends_alt_worker.result.connect(lambda df: actualizar_datos_macrotrends(self, df))
+        
+        # Deshabilitar el botón mientras se busca
+        if hasattr(self, 'macrotrends_alt_button'):
+            self.macrotrends_alt_button.setEnabled(False)
+            self.macrotrends_alt_button.setText("Buscando...")
+        
+        self.macrotrends_alt_worker.start()
+    except Exception as e:
+        self.statusLabel.setText(f"Error al buscar: {str(e)}")
+        if hasattr(self, 'macrotrends_alt_button'):
+            self.macrotrends_alt_button.setEnabled(True)
+            self.macrotrends_alt_button.setText("Buscar")
+
+# Funciones para actualizar los datos con los resultados de la búsqueda alternativa
+def actualizar_datos_google(self, df):
+    try:
+        # Habilitar el botón nuevamente
+        if hasattr(self, 'google_alt_button'):
+            self.google_alt_button.setEnabled(True)
+            self.google_alt_button.setText("Buscar")
+            
+        if not df.empty:
+            self.google_df = df
+            
+            # Actualizar el modelo de la tabla
+            if hasattr(self, 'data_frames'):
+                self.data_frames['balance']['google'] = filtrar_datos_google(df, 'balance') 
+                self.data_frames['cashflow']['google'] = filtrar_datos_google(df, 'cashflow')
+                self.data_frames['income']['google'] = filtrar_datos_google(df, 'income')
+                
+                # Actualizar la vista con los datos filtrados para balance (vista actual)
+                filtered_df = filtrar_datos_google(df, 'balance')
+                if not filtered_df.empty:
+                    model = PandasModel(filtered_df)
+                    self.tableView.setModel(model)
+                    self.tableView.resizeColumnsToContents()
+                    self.tableView.horizontalHeader().setStretchLastSection(True)
+                    self.tableView.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+            
+            # Ocultar la interfaz de búsqueda alternativa
+            if hasattr(self, 'google_alt_label'):
+                self.google_alt_label.setVisible(False)
+                self.google_alt_edit.setVisible(False)
+                self.google_alt_button.setVisible(False)
+            
+            # Actualizar la vista de datos equivalentes
+            mostrar_datos_equivalentes(self)
+            self.statusLabel.setText("Datos de Google Finance actualizados")
+        else:
+            self.statusLabel.setText("No se encontraron datos para el ticker alternativo de Google Finance")
+    except Exception as e:
+        self.statusLabel.setText(f"Error: {str(e)}")
+
+def actualizar_datos_yahoo(self, df):
+    try:
+        # Habilitar el botón nuevamente
+        if hasattr(self, 'yahoo_alt_button'):
+            self.yahoo_alt_button.setEnabled(True)
+            self.yahoo_alt_button.setText("Buscar")
+            
+        if not df.empty:
+            self.yahoo_df = df
+            
+            # Guardar el ticker alternativo para usarlo en filtrados posteriores
+            self.yahoo_alt_ticker = self.yahoo_alt_edit.text().strip() if hasattr(self, 'yahoo_alt_edit') else ""
+            
+            # Actualizar el modelo de la tabla
+            if hasattr(self, 'data_frames'):
+                self.data_frames['balance']['yahoo'] = filtrar_datos_yahoo(self.yahoo_alt_ticker, 'balance')
+                self.data_frames['cashflow']['yahoo'] = filtrar_datos_yahoo(self.yahoo_alt_ticker, 'cashflow')
+                self.data_frames['income']['yahoo'] = filtrar_datos_yahoo(self.yahoo_alt_ticker, 'income')
+                
+                # Actualizar la vista con los datos filtrados
+                filtered_df = filtrar_datos_yahoo(self.yahoo_alt_ticker, 'balance')
+                if not filtered_df.empty:
+                    model = PandasModel(filtered_df)
+                    self.tableView_3.setModel(model)
+                    self.tableView_3.resizeColumnsToContents()
+                    self.tableView_3.horizontalHeader().setStretchLastSection(True)
+                    self.tableView_3.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+            
+            # Ocultar la interfaz de búsqueda alternativa
+            if hasattr(self, 'yahoo_alt_label'):
+                self.yahoo_alt_label.setVisible(False)
+                self.yahoo_alt_edit.setVisible(False)
+                self.yahoo_alt_button.setVisible(False)
+            
+            # Actualizar la vista de datos equivalentes
+            mostrar_datos_equivalentes(self)
+            self.statusLabel.setText("Datos de Yahoo Finance actualizados")
+        else:
+            self.statusLabel.setText("No se encontraron datos para el ticker alternativo de Yahoo Finance")
+    except Exception as e:
+        self.statusLabel.setText(f"Error: {str(e)}")
+
+def actualizar_datos_macrotrends(self, df):
+    try:
+        # Habilitar el botón nuevamente
+        if hasattr(self, 'macrotrends_alt_button'):
+            self.macrotrends_alt_button.setEnabled(True)
+            self.macrotrends_alt_button.setText("Buscar")
+            
+        if not df.empty:
+            self.macrotrends_df = df
+            
+            # Actualizar el modelo de la tabla
+            if hasattr(self, 'data_frames'):
+                self.data_frames['balance']['macrotrends'] = filtrar_datos_macrotrends(df, 'balance')
+                self.data_frames['cashflow']['macrotrends'] = filtrar_datos_macrotrends(df, 'cashflow')
+                self.data_frames['income']['macrotrends'] = filtrar_datos_macrotrends(df, 'income')
+                
+                # Actualizar la vista con los datos filtrados
+                filtered_df = filtrar_datos_macrotrends(df, 'balance')
+                if not filtered_df.empty:
+                    model = PandasModel(filtered_df)
+                    self.tableView_4.setModel(model)
+                    self.tableView_4.resizeColumnsToContents()
+                    self.tableView_4.horizontalHeader().setStretchLastSection(True)
+                    self.tableView_4.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+            
+            # Ocultar la interfaz de búsqueda alternativa
+            if hasattr(self, 'macrotrends_alt_label'):
+                self.macrotrends_alt_label.setVisible(False)
+                self.macrotrends_alt_edit.setVisible(False)
+                self.macrotrends_alt_button.setVisible(False)
+            
+            # Actualizar la vista de datos equivalentes
+            mostrar_datos_equivalentes(self)
+            self.statusLabel.setText("Datos de Macrotrends actualizados")
+        else:
+            self.statusLabel.setText("No se encontraron datos para el ticker alternativo de Macrotrends")
+    except Exception as e:
+        self.statusLabel.setText(f"Error: {str(e)}")
+

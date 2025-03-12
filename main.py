@@ -3,8 +3,8 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog
 from PyQt5.QtGui import QIcon
 from view.main_view import Ui_MainWindow
 from view.equivalencias_view import EquivalenciasWindowUI
-from view.ayuda_view import Ui_AyudaWindow  # Import the combined help view
-from model.database_setup import initialize_database  # Correct import
+from view.ayuda_view import Ui_AyudaWindow  
+from model.database_setup import initialize_database  
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
@@ -13,7 +13,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.setWindowIcon(QIcon('resources/icon.ico'))
         self.actionEquivalencias.triggered.connect(self.open_equivalencias_window)
         self.actionAcerca_de.triggered.connect(lambda: self.open_ayuda_window('acerca_de'))
-        self.actionDocumentaci_n.triggered.connect(lambda: self.open_ayuda_window('documentacion'))  # Connect the documentation action
+        self.actionDocumentaci_n.triggered.connect(lambda: self.open_ayuda_window('documentacion'))  
         self.actionSalir.triggered.connect(self.close_application)
         self.showMaximized()
 

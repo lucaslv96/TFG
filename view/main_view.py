@@ -176,13 +176,13 @@ class Ui_MainWindow(object):
         self.label_2.setObjectName("label_2")
         self.label_2.setStyleSheet("color: #2c3e50; margin-top: 10px; padding: 5px; background-color: #f0f0f0; border-radius: 5px;")
 
-        # Update the search fields to be visible but disabled by default
+        # Update the search fields to be visible and enabled by default
         self.search_google = QtWidgets.QLineEdit(self.tab)
         self.search_google.setPlaceholderText("Buscar en Google Finance")
         self.search_google.setObjectName("search_google")
         self.search_google.textChanged.connect(lambda: self.filter_table(self.tableView, self.search_google.text()))
         self.search_google.setVisible(True)  # Make visible by default
-        self.search_google.setEnabled(False)  # But disabled by default until search completes
+        self.search_google.setEnabled(True)  # Make enabled by default
         self.search_google.setMinimumHeight(28)  # Altura mínima
         self.search_google.setFont(QtGui.QFont("Arial", 9))
         self.search_google.setStyleSheet("""
@@ -233,7 +233,7 @@ class Ui_MainWindow(object):
         self.search_yahoo.setObjectName("search_yahoo")
         self.search_yahoo.textChanged.connect(lambda: self.filter_table(self.tableView_3, self.search_yahoo.text()))
         self.search_yahoo.setVisible(True)  # Make visible by default
-        self.search_yahoo.setEnabled(False)  # But disabled by default until search completes
+        self.search_yahoo.setEnabled(True)  # Make enabled by default
         self.search_yahoo.setMinimumHeight(28)  # Altura mínima
         self.search_yahoo.setFont(QtGui.QFont("Arial", 9))
         self.search_yahoo.setStyleSheet("""
@@ -284,7 +284,7 @@ class Ui_MainWindow(object):
         self.search_macrotrends.setObjectName("search_macrotrends")
         self.search_macrotrends.textChanged.connect(lambda: self.filter_table(self.tableView_4, self.search_macrotrends.text()))
         self.search_macrotrends.setVisible(True)  # Make visible by default
-        self.search_macrotrends.setEnabled(False)  # But disabled by default until search completes
+        self.search_macrotrends.setEnabled(True)  # Make enabled by default
         self.search_macrotrends.setMinimumHeight(28)  # Altura mínima
         self.search_macrotrends.setFont(QtGui.QFont("Arial", 9))
         self.search_macrotrends.setStyleSheet("""
@@ -531,14 +531,5 @@ class Ui_MainWindow(object):
             table_view.setRowHidden(row, not match)
 
     def on_search_clicked(self):
-        # Deshabilitar los campos de búsqueda al inicio de la búsqueda
-        self.search_google.setEnabled(False)
-        self.search_yahoo.setEnabled(False)
-        self.search_macrotrends.setEnabled(False)
-        
         # Iniciar la búsqueda
         buscar_datos(self)
-        # After a successful search, make the search boxes visible
-        self.search_google.setVisible(True)
-        self.search_yahoo.setVisible(True)
-        self.search_macrotrends.setVisible(True)

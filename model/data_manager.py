@@ -51,31 +51,29 @@ def filtrar_datos_google(df, data_type):
         filtered_df = pd.DataFrame()
     return filtered_df
 
-def filtrar_datos_yahoo(ticker, data_type):
-    yahoo_scraper = YahooFinanceScraper()
-    data = yahoo_scraper.get_financial_data(ticker, data_type)
-
-    if data_type == 'income':  # Estado de Resultados
-        filtered_df = data.loc[data['Datos'].astype(str).isin([
-            'Basic EPS', 'Interest Income Non Operating', 'Operating Expense', 
-            'Selling General And Administration', 'Diluted EPS', 
-            'Net Income From Continuing Operation Net Minority Interest', 
-            'Tax Rate For Calcs', 'Net Interest Income', 'Reconciled Cost Of Revenue', 
-            'Interest Expense', 'Operating Income', 'Other Non Operating Income Expenses', 
-            'EBIT', 'Gross Profit', 'Interest Expense Non Operating', 'Basic Average Shares', 
-            'Net Income Common Stockholders', 'Diluted NI Availto Com Stockholders', 
-            'Research And Development', 'EBITDA', 'Interest Income', 'Normalized Income', 
-            'Pretax Income', 'Other Income Expense', 'Diluted Average Shares', 
-            'Normalized EBITDA', 'Reconciled Depreciation', 'Tax Effect Of Unusual Items', 
-            'Cost Of Revenue', 'Total Expenses', 'Tax Provision', 
-            'Total Operating Income As Reported', 'Operating Revenue', 
-            'Net Income From Continuing And Discontinued Operation', 
-            'Net Non Operating Interest Income Expense', 'Total Revenue', 'Net Income', 
-            'Net Income Continuous Operations', 'Net Income Including Noncontrolling Interests'
-        ])]
-
-    elif data_type == 'balance':  # Balance General
-        filtered_df = data.loc[data['Datos'].astype(str).isin([
+def filtrar_datos_yahoo(ticker, tipo_dato):
+    """
+    Filtra los datos de Yahoo Finance según el tipo de dato solicitado.
+    """
+    scraper = YahooFinanceScraper()
+    
+    if tipo_dato == 'balance':
+        data = scraper.get_financial_data(ticker, 'balance')
+    elif tipo_dato == 'income':
+        data = scraper.get_financial_data(ticker, 'income')
+    elif tipo_dato == 'cashflow':
+        data = scraper.get_financial_data(ticker, 'cashflow')
+    else:
+        return pd.DataFrame()  # Devolver DataFrame vacío si el tipo de dato no es válido
+    
+    # Verificar que el DataFrame no está vacío y contiene la columna 'Datos'
+    if data.empty or 'Datos' not in data.columns:
+        # Si está vacío o no tiene la columna 'Datos', devolver DataFrame vacío con estructura correcta
+        return pd.DataFrame(columns=["Datos", "2024", "2023", "2022", "2021"])
+    
+    # Balance sheet
+    if tipo_dato == 'balance':
+        balance_items = [
             'Stockholders Equity', 'Current Assets', 'Other Equity Adjustments', 
             'Investments And Advances', 'Common Stock', 'Current Deferred Revenue', 
             'Current Debt', 'Payables', 'Invested Capital', 
@@ -104,10 +102,33 @@ def filtrar_datos_yahoo(ticker, data_type):
             'Land And Improvements', 'Other Short Term Investments', 
             'Non Current Deferred Taxes Assets', 'Ordinary Shares Number', 
             'Cash Equivalents', 'Long Term Capital Lease Obligation'
-        ])]
-
-    elif data_type == 'cashflow':  # Flujo de Caja
-        filtered_df = data.loc[data['Datos'].astype(str).isin([
+        ]
+        filtered_df = data.loc[data['Datos'].astype(str).isin(balance_items)]
+        
+    # Income statement
+    elif tipo_dato == 'income':
+        income_items = [
+            'Basic EPS', 'Interest Income Non Operating', 'Operating Expense', 
+            'Selling General And Administration', 'Diluted EPS', 
+            'Net Income From Continuing Operation Net Minority Interest', 
+            'Tax Rate For Calcs', 'Net Interest Income', 'Reconciled Cost Of Revenue', 
+            'Interest Expense', 'Operating Income', 'Other Non Operating Income Expenses', 
+            'EBIT', 'Gross Profit', 'Interest Expense Non Operating', 'Basic Average Shares', 
+            'Net Income Common Stockholders', 'Diluted NI Availto Com Stockholders', 
+            'Research And Development', 'EBITDA', 'Interest Income', 'Normalized Income', 
+            'Pretax Income', 'Other Income Expense', 'Diluted Average Shares', 
+            'Normalized EBITDA', 'Reconciled Depreciation', 'Tax Effect Of Unusual Items', 
+            'Cost Of Revenue', 'Total Expenses', 'Tax Provision', 
+            'Total Operating Income As Reported', 'Operating Revenue', 
+            'Net Income From Continuing And Discontinued Operation', 
+            'Net Non Operating Interest Income Expense', 'Total Revenue', 'Net Income', 
+            'Net Income Continuous Operations', 'Net Income Including Noncontrolling Interests'
+        ]
+        filtered_df = data.loc[data['Datos'].astype(str).isin(income_items)]
+        
+    # Cash flow
+    elif tipo_dato == 'cashflow':
+        cashflow_items = [
             'Issuance Of Debt', 'Net Issuance Payments Of Debt', 
             'Depreciation And Amortization', 'Change In Payable', 
             'Interest Paid Supplemental Data', 'Change In Inventory', 
@@ -133,14 +154,10 @@ def filtrar_datos_yahoo(ticker, data_type):
             'End Cash Position', 'Net PPE Purchase And Sale', 'Change In Receivables', 
             'Net Other Financing Charges', 'Change In Other Working Capital', 
             'Change In Payables And Accrued Expense', 'Purchase Of PPE'
-        ])]
-
-    else:
-        filtered_df = data 
-
+        ]
+        filtered_df = data.loc[data['Datos'].astype(str).isin(cashflow_items)]
+    
     return filtered_df
-
-
 
 def filtrar_datos_macrotrends(df, data_type):
     # Listas con los nombres de los datos para cada tipo
