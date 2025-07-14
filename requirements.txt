@@ -1,0 +1,7 @@
+pandas
+selenium
+PyQt5
+matplotlib
+yfinance
+openpyxl
+numpy

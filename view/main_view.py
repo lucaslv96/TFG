@@ -1,0 +1,560 @@
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QMessageBox
+from controller.main_controller import buscar_datos, exportar_datos, importar_datos
+from controller.datos_equivalentes_controller import mostrar_datos_equivalentes
+import re
+
+class Ui_MainWindow(object):
+    def setupUi(self, MainWindow):
+        MainWindow.setObjectName("MainWindow")
+        
+        screen = QtWidgets.QApplication.primaryScreen()
+        screen_size = screen.size()
+        width = screen_size.width()
+        height = screen_size.height()
+        
+        MainWindow.resize(int(width * 0.8), int(height * 0.8))
+        MainWindow.setMinimumSize(QtCore.QSize(800, 600))
+        self.centralwidget = QtWidgets.QWidget(MainWindow)
+        self.centralwidget.setObjectName("centralwidget")
+        
+        self.centralwidget.setStyleSheet("""
+            QWidget {
+                background-color: #f0f0f0;
+            }
+            QLabel {
+                color: #333;
+            }
+            QLineEdit {
+                padding: 5px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+            }
+            QPushButton {
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                background-color: #e0e0e0;
+                color: #333;
+            }
+            QPushButton:hover {
+                background-color: #d0d0d0;
+            }
+            QTableView {
+                background-color: white;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+            }
+        """)
+        
+        self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout.setSpacing(0)
+        
+        self.tabWidget = QtWidgets.QTabWidget(self.centralwidget)
+        self.tabWidget.setObjectName("tabWidget")
+        
+        tab_font = QtGui.QFont()
+        tab_font.setBold(True)
+        tab_font.setPointSize(8)
+        self.tabWidget.setFont(tab_font)
+        
+        self.tabWidget.setStyleSheet("""
+            QTabBar::tab {
+                background-color: #f0f0f0;
+                border: 1px solid #ccc;
+                border-bottom-color: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                padding: 8px 15px;
+                margin-right: 2px;
+            }
+            QTabBar::tab:selected {
+                background-color: white;
+                border-bottom-color: white;
+            }
+            QTabBar::tab:hover {
+                background-color: #e0e0e0;
+            }
+        """)
+        
+        self.verticalLayout.addWidget(self.tabWidget, stretch=1)
+        
+        self.tab = QtWidgets.QWidget()
+        self.tab.setObjectName("tab")
+        self.tabLayout = QtWidgets.QVBoxLayout(self.tab)
+        self.tabLayout.setObjectName("tabLayout")
+        self.tabLayout.setContentsMargins(0, 0, 0, 0)
+        self.tabLayout.setSpacing(0)
+        self.tab.setLayout(self.tabLayout)
+        
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.horizontalLayout.setContentsMargins(10, 10, 10, 10)
+        self.horizontalLayout.setSpacing(10)
+        
+        self.label = QtWidgets.QLabel(self.tab)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(10)
+        self.label.setFont(font)
+        self.label.setObjectName("label")
+        self.label.setStyleSheet("color: #2c3e50; padding: 5px;")
+        self.horizontalLayout.addWidget(self.label)
+        
+        self.lineEdit = QtWidgets.QLineEdit(self.tab)
+        self.lineEdit.setObjectName("lineEdit")
+        self.lineEdit.setPlaceholderText("Ingrese el símbolo del ticker")
+        self.lineEdit.setMinimumHeight(30)
+        self.lineEdit.setFont(QtGui.QFont("Arial", 10))
+        self.lineEdit.setStyleSheet("""
+            QLineEdit {
+                padding: 5px 10px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                background-color: #f8f8f8;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4a90d9;
+                background-color: #ffffff;
+            }
+        """)
+        self.horizontalLayout.addWidget(self.lineEdit)
+        
+        self.pushButton = QtWidgets.QPushButton(self.tab)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(10)
+        self.pushButton.setFont(font)
+        self.pushButton.setObjectName("pushButton")
+        self.pushButton.setFixedSize(120, 35)
+        self.pushButton.setStyleSheet("""
+            QPushButton {
+                padding: 5px 15px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                background-color: #e0e0e0;
+                color: #333;
+            }
+            QPushButton:hover {
+                background-color: #d0d0d0;
+            }
+            QPushButton:pressed {
+                background-color: #c0c0c0;
+            }
+        """)
+        self.pushButton.clicked.connect(self.on_search_clicked)
+        self.horizontalLayout.addWidget(self.pushButton)
+        
+        self.tabLayout.addLayout(self.horizontalLayout)
+        
+        self.progressBar = QtWidgets.QProgressBar(self.tab)
+        self.progressBar.setObjectName("progressBar")
+        self.progressBar.setValue(0)
+        self.progressBar.setVisible(False)
+        self.tabLayout.addWidget(self.progressBar)
+        
+        self.label_2 = QtWidgets.QLabel(self.tab)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(10)
+        self.label_2.setFont(font)
+        self.label_2.setObjectName("label_2")
+        self.label_2.setStyleSheet("color: #2c3e50; margin-top: 10px; padding: 5px; background-color: #f0f0f0; border-radius: 5px;")
+
+        self.search_google = QtWidgets.QLineEdit(self.tab)
+        self.search_google.setPlaceholderText("Buscar en Google Finance")
+        self.search_google.setObjectName("search_google")
+        self.search_google.textChanged.connect(lambda: self.filter_table(self.tableView, self.search_google.text()))
+        self.search_google.setVisible(True)
+        self.search_google.setEnabled(True)
+        self.search_google.setMinimumHeight(28)
+        self.search_google.setFont(QtGui.QFont("Arial", 9))
+        self.search_google.setStyleSheet("""
+            QLineEdit {
+                padding: 4px 8px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                background-color: #f8f8f8;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4a90d9;
+                background-color: #ffffff;
+            }
+            QLineEdit:disabled {
+                background-color: #e9e9e9;
+                color: #888888;
+            }
+        """)
+
+        self.google_layout = QtWidgets.QHBoxLayout()
+        self.google_layout.addWidget(self.label_2)
+        self.google_layout.addWidget(self.search_google)
+        self.tabLayout.addLayout(self.google_layout)
+
+        self.tableView = QtWidgets.QTableView(self.tab)
+        self.tableView.setObjectName("tableView")
+        self.tableView.horizontalHeader().setStretchLastSection(True)
+        self.tableView.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.tableView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.tabLayout.addWidget(self.tableView)
+        
+        header = self.tableView.horizontalHeader()
+        header_font = header.font()
+        header_font.setBold(True)
+        header.setFont(header_font)
+        
+        self.label_4 = QtWidgets.QLabel(self.tab)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(10)
+        self.label_4.setFont(font)
+        self.label_4.setObjectName("label_4")
+        self.label_4.setStyleSheet("color: #2c3e50; margin-top: 10px; padding: 5px; background-color: #f0f0f0; border-radius: 5px;")
+
+        self.search_yahoo = QtWidgets.QLineEdit(self.tab)
+        self.search_yahoo.setPlaceholderText("Buscar en Yahoo Finance")
+        self.search_yahoo.setObjectName("search_yahoo")
+        self.search_yahoo.textChanged.connect(lambda: self.filter_table(self.tableView_3, self.search_yahoo.text()))
+        self.search_yahoo.setVisible(True)
+        self.search_yahoo.setEnabled(True)
+        self.search_yahoo.setMinimumHeight(28)
+        self.search_yahoo.setFont(QtGui.QFont("Arial", 9))
+        self.search_yahoo.setStyleSheet("""
+            QLineEdit {
+                padding: 4px 8px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                background-color: #f8f8f8;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4a90d9;
+                background-color: #ffffff;
+            }
+            QLineEdit:disabled {
+                background-color: #e9e9e9;
+                color: #888888;
+            }
+        """)
+
+        self.yahoo_layout = QtWidgets.QHBoxLayout()
+        self.yahoo_layout.addWidget(self.label_4)
+        self.yahoo_layout.addWidget(self.search_yahoo)
+        self.tabLayout.addLayout(self.yahoo_layout)
+        
+        self.tableView_3 = QtWidgets.QTableView(self.tab)
+        self.tableView_3.setObjectName("tableView_3")
+        self.tableView_3.horizontalHeader().setStretchLastSection(True)
+        self.tableView_3.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.tableView_3.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.tabLayout.addWidget(self.tableView_3)
+        
+        header_3 = self.tableView_3.horizontalHeader()
+        header_font_3 = header_3.font()
+        header_font_3.setBold(True)
+        header_3.setFont(header_font_3)
+        
+        self.label_5 = QtWidgets.QLabel(self.tab)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(10)
+        self.label_5.setFont(font)
+        self.label_5.setObjectName("label_5")
+        self.label_5.setStyleSheet("color: #2c3e50; margin-top: 10px; padding: 5px; background-color: #f0f0f0; border-radius: 5px;")
+
+        self.search_macrotrends = QtWidgets.QLineEdit(self.tab)
+        self.search_macrotrends.setPlaceholderText("Buscar en Macrotrends")
+        self.search_macrotrends.setObjectName("search_macrotrends")
+        self.search_macrotrends.textChanged.connect(lambda: self.filter_table(self.tableView_4, self.search_macrotrends.text()))
+        self.search_macrotrends.setVisible(True)
+        self.search_macrotrends.setEnabled(True)
+        self.search_macrotrends.setMinimumHeight(28)
+        self.search_macrotrends.setFont(QtGui.QFont("Arial", 9))
+        self.search_macrotrends.setStyleSheet("""
+            QLineEdit {
+                padding: 4px 8px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                background-color: #f8f8f8;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4a90d9;
+                background-color: #ffffff;
+            }
+            QLineEdit:disabled {
+                background-color: #e9e9e9;
+                color: #888888;
+            }
+        """)
+
+        self.macrotrends_layout = QtWidgets.QHBoxLayout()
+        self.macrotrends_layout.addWidget(self.label_5)
+        self.macrotrends_layout.addWidget(self.search_macrotrends)
+        self.tabLayout.addLayout(self.macrotrends_layout)
+        
+        self.tableView_4 = QtWidgets.QTableView(self.tab)
+        self.tableView_4.setObjectName("tableView_4")
+        self.tableView_4.horizontalHeader().setStretchLastSection(True)
+        self.tableView_4.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.tableView_4.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.tabLayout.addWidget(self.tableView_4)
+        
+        header_4 = self.tableView_4.horizontalHeader()
+        header_font_4 = header_4.font()
+        header_font_4.setBold(True)
+        header_4.setFont(header_font_4)
+        
+        self.buttonLayout = QtWidgets.QHBoxLayout()
+        self.buttonLayout.setObjectName("buttonLayout")
+        self.buttonLayout.setContentsMargins(10, 10, 10, 10)
+        self.buttonLayout.setSpacing(10)
+        
+        self.balanceButton = QtWidgets.QPushButton("Balance", self.tab)
+        self.balanceButton.setFixedHeight(30)
+        self.balanceButton.setFont(font)
+        self.balanceButton.setStyleSheet("padding: 5px;")
+        
+        self.flujoCajaButton = QtWidgets.QPushButton("Flujo de Caja", self.tab)
+        self.flujoCajaButton.setFixedHeight(30)
+        self.flujoCajaButton.setFont(font)
+        self.flujoCajaButton.setStyleSheet("padding: 5px;")
+        
+        self.perdidasGananciasButton = QtWidgets.QPushButton("Cuenta de Pérdidas y Ganancias", self.tab)
+        self.perdidasGananciasButton.setFixedHeight(30)
+        self.perdidasGananciasButton.setFont(font)
+        self.perdidasGananciasButton.setStyleSheet("padding: 5px;")
+        
+        self.buttonLayout.addWidget(self.balanceButton)
+        self.buttonLayout.addWidget(self.flujoCajaButton)
+        self.buttonLayout.addWidget(self.perdidasGananciasButton)
+        
+        self.balanceButton.setVisible(False)
+        self.flujoCajaButton.setVisible(False)
+        self.perdidasGananciasButton.setVisible(False)
+        
+        self.tabLayout.addLayout(self.buttonLayout)
+        
+        self.statusLabel = QtWidgets.QLabel(self.tab)
+        self.statusLabel.setObjectName("statusLabel")
+        self.statusLabel.setText("Esperando búsqueda")
+        self.statusLabel.setFont(QtGui.QFont("Arial", 9, QtGui.QFont.Bold))
+        self.statusLabel.setStyleSheet("color: #555; padding: 5px; font-style: italic;")
+        self.tabLayout.addWidget(self.statusLabel, alignment=QtCore.Qt.AlignLeft)
+        
+        self.tabLayout.setContentsMargins(10, 10, 10, 0)
+        self.tabLayout.setSpacing(10)
+        
+        self.tabWidget.addTab(self.tab, "")
+        
+        self.tab_2 = QtWidgets.QWidget()
+        self.tab_2.setObjectName("tab_2")
+        self.tab_2_layout = QtWidgets.QVBoxLayout(self.tab_2)
+        self.tab_2_layout.setObjectName("tab_2_layout")
+        self.tab_2_layout.setContentsMargins(10, 10, 10, 10)
+        self.tab_2_layout.setSpacing(10)
+        
+        self.label_equivalentes = QtWidgets.QLabel(self.tab_2)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(10)
+        self.label_equivalentes.setFont(font)
+        self.label_equivalentes.setObjectName("label_equivalentes")
+        self.label_equivalentes.setStyleSheet("color: #2c3e50; margin-top: 10px; padding: 5px; background-color: #f0f0f0; border-radius: 5px;")
+        self.tab_2_layout.addWidget(self.label_equivalentes)
+        
+        self.label_balance = QtWidgets.QLabel(self.tab_2)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(10)
+        self.label_balance.setFont(font)
+        self.label_balance.setObjectName("label_balance")
+        self.label_balance.setStyleSheet("color: #2c3e50; margin-top: 10px; padding: 5px; background-color: #f0f0f0; border-radius: 5px;")
+        self.tab_2_layout.addWidget(self.label_balance)
+        
+        self.tableView_balance = QtWidgets.QTableView(self.tab_2)
+        self.tableView_balance.setObjectName("tableView_balance")
+        self.tableView_balance.horizontalHeader().setStretchLastSection(True)
+        self.tableView_balance.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.tableView_balance.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.tab_2_layout.addWidget(self.tableView_balance)
+        
+        header_balance = self.tableView_balance.horizontalHeader()
+        header_font_balance = header_balance.font()
+        header_font_balance.setBold(True)
+        header_balance.setFont(header_font_balance)
+        
+        self.label_cash_flow = QtWidgets.QLabel(self.tab_2)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(10)
+        self.label_cash_flow.setFont(font)
+        self.label_cash_flow.setObjectName("label_cash_flow")
+        self.label_cash_flow.setStyleSheet("color: #2c3e50; margin-top: 10px; padding: 5px; background-color: #f0f0f0; border-radius: 5px;")
+        self.tab_2_layout.addWidget(self.label_cash_flow)
+        
+        self.tableView_cash_flow = QtWidgets.QTableView(self.tab_2)
+        self.tableView_cash_flow.setObjectName("tableView_cash_flow")
+        self.tableView_cash_flow.horizontalHeader().setStretchLastSection(True)
+        self.tableView_cash_flow.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.tableView_cash_flow.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.tab_2_layout.addWidget(self.tableView_cash_flow)
+        
+        header_cash_flow = self.tableView_cash_flow.horizontalHeader()
+        header_font_cash_flow = header_cash_flow.font()
+        header_font_cash_flow.setBold(True)
+        header_cash_flow.setFont(header_font_cash_flow)
+        
+        self.label_income_statement = QtWidgets.QLabel(self.tab_2)
+        font = QtGui.QFont()
+        font.setBold(True)
+        font.setPointSize(10)
+        self.label_income_statement.setFont(font)
+        self.label_income_statement.setObjectName("label_income_statement")
+        self.label_income_statement.setStyleSheet("color: #2c3e50; margin-top: 10px; padding: 5px; background-color: #f0f0f0; border-radius: 5px;")
+        self.tab_2_layout.addWidget(self.label_income_statement)
+        
+        self.tableView_income_statement = QtWidgets.QTableView(self.tab_2)
+        self.tableView_income_statement.setObjectName("tableView_income_statement")
+        self.tableView_income_statement.horizontalHeader().setStretchLastSection(True)
+        self.tableView_income_statement.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.tableView_income_statement.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.tab_2_layout.addWidget(self.tableView_income_statement)
+        
+        header_income_statement = self.tableView_income_statement.horizontalHeader()
+        header_font_income_statement = header_income_statement.font()
+        header_font_income_statement.setBold(True)
+        header_income_statement.setFont(header_font_income_statement)
+        
+        self.tabWidget.addTab(self.tab_2, "")
+        
+        MainWindow.setCentralWidget(self.centralwidget)
+        
+        self.menubar = QtWidgets.QMenuBar(MainWindow)
+        self.menubar.setGeometry(QtCore.QRect(0, 0, int(width * 0.8), 26))
+        self.menubar.setObjectName("menubar")
+        self.menuArchivo = QtWidgets.QMenu(self.menubar)
+        self.menuArchivo.setObjectName("menuArchivo")
+        self.menuAyuda = QtWidgets.QMenu(self.menubar)
+        self.menuAyuda.setObjectName("menuAyuda")
+        MainWindow.setMenuBar(self.menubar)
+        
+        self.statusbar = QtWidgets.QStatusBar(MainWindow)
+        self.statusbar.setObjectName("statusbar")
+        MainWindow.setStatusBar(self.statusbar)
+        
+        self.actionExportar = QtWidgets.QAction(MainWindow)
+        self.actionExportar.setObjectName("actionExportar")
+        self.actionExportar.triggered.connect(lambda: exportar_datos(self))
+        self.actionImportar = QtWidgets.QAction(MainWindow)
+        self.actionImportar.setObjectName("actionImportar")
+        self.actionImportar.triggered.connect(lambda: importar_datos(self))
+        self.actionEquivalencias = QtWidgets.QAction(MainWindow)
+        self.actionEquivalencias.setObjectName("actionEquivalencias")
+        self.actionSalir = QtWidgets.QAction(MainWindow)
+        self.actionSalir.setObjectName("actionSalir")
+        self.actionSalir.triggered.connect(lambda: QtWidgets.QApplication.quit())
+        self.actionDocumentaci_n = QtWidgets.QAction(MainWindow)
+        self.actionDocumentaci_n.setObjectName("actionDocumentaci_n")
+        self.actionAcerca_de = QtWidgets.QAction(MainWindow)
+        self.actionAcerca_de.setObjectName("actionAcerca_de")
+        
+        self.menuArchivo.addAction(self.actionExportar)
+        self.menuArchivo.addAction(self.actionImportar)
+        self.menuArchivo.addSeparator()
+        self.menuArchivo.addAction(self.actionEquivalencias)
+        self.menuArchivo.addSeparator()
+        self.menuArchivo.addAction(self.actionSalir)
+        self.menuAyuda.addAction(self.actionDocumentaci_n)
+        self.menuAyuda.addAction(self.actionAcerca_de)
+        self.menubar.addAction(self.menuArchivo.menuAction())
+        self.menubar.addAction(self.menuAyuda.menuAction())
+
+        self.retranslateUi(MainWindow)
+        self.tabWidget.setCurrentIndex(0)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "Scrapper de datos financieros"))
+        self.label_2.setText(_translate("MainWindow", "Datos de Google Finance"))
+        self.label.setText(_translate("MainWindow", "Ticket:"))
+        self.label_4.setText(_translate("MainWindow", "Datos de Yahoo Finance"))
+        self.label_5.setText(_translate("MainWindow", "Datos de Macrotrends"))
+        self.pushButton.setText(_translate("MainWindow", "Buscar"))
+        self.lineEdit.setPlaceholderText(_translate("MainWindow", "Ingrese el símbolo del ticker"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Principal"))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Datos equivalentes"))
+        self.menuArchivo.setTitle(_translate("MainWindow", "Archivo"))
+        self.menuAyuda.setTitle(_translate("MainWindow", "Ayuda"))
+        self.actionExportar.setText(_translate("MainWindow", "Exportar"))
+        self.actionImportar.setText(_translate("MainWindow", "Importar"))
+        self.actionEquivalencias.setText(_translate("MainWindow", "Equivalencias"))
+        self.actionSalir.setText(_translate("MainWindow", "Salir"))
+        self.actionDocumentaci_n.setText(_translate("MainWindow", "Documentación"))
+        self.actionAcerca_de.setText(_translate("MainWindow", "Acerca de")) 
+        self.label_equivalentes.setText(_translate("MainWindow", "Datos Equivalentes"))
+        self.label_cash_flow.setText(_translate("MainWindow", "Datos de Flujo de Caja"))
+        self.label_income_statement.setText(_translate("MainWindow", "Cuenta de Pérdidas y Ganancias"))
+        self.label_balance.setText(_translate("MainWindow", "Datos de Balance"))
+
+    def filter_table(self, table_view, text):
+        model = table_view.model()
+        if model is None:
+            return
+        for row in range(model.rowCount()):
+            match = False
+            for col in range(model.columnCount()):
+                item = model.index(row, col).data()
+                if text.lower() in item.lower():
+                    match = True
+                    break
+            table_view.setRowHidden(row, not match)
+
+    def validate_ticker(self, ticker):
+        """
+        Valida el nombre del ticker
+        """
+        if not ticker:
+            return False, "El ticker no puede estar vacío"
+        
+        # Eliminar espacios en blanco
+        ticker = ticker.strip()
+        
+        if not ticker:
+            return False, "El ticker no puede estar vacío"
+        
+        if len(ticker) > 10:
+            return False, "El ticker es demasiado largo (máximo 10 caracteres)"
+        
+        if not re.match(r'^[A-Za-z0-9.\-]+$', ticker):
+            return False, "El ticker solo puede contener letras, números, puntos y guiones"
+        
+        return True, "Válido"
+
+    def show_error_message(self, title, message):
+        """
+        Muestra un mensaje de error al usuario
+        """
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle(title)
+        msg.setText(message)
+        msg.exec_()
+
+    def on_search_clicked(self):
+        ticker = self.lineEdit.text().strip().upper()
+        
+        # Validar el ticker
+        is_valid, message = self.validate_ticker(ticker)
+        
+        if not is_valid:
+            self.show_error_message("Error de validación", message)
+            self.lineEdit.setFocus()  # Poner el foco de nuevo en el campo de entrada
+            return
+        
+        # Actualizar el campo con el ticker normalizado
+        self.lineEdit.setText(ticker)
+        
+        # Proceder con la búsqueda
+        buscar_datos(self)
