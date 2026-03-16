@@ -67,7 +67,7 @@ TFG/
 ---
 
 ## Arquitectura: MVC + capa de scrapers
-
+ 
 ```
 VIEW (PyQt5)
   main_view.py · equivalencias_view.py · ayuda_view.py
