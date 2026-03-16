@@ -17,6 +17,9 @@ data/export/*
 !data/db/.gitkeep
 !data/export/.gitkeep
 
+# Claude Code
+.claude/
+
 # IDEs
 .idea/
 .vscode/

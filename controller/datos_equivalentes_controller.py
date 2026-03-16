@@ -97,6 +97,88 @@ YAHOO_INICIAL = "Yahoo Inicial"
 # Definir constante para el patrón de expresión regular
 NON_NUMERIC_PATTERN = r'[^\d.-]'
 
+_ALL_YEARS = ["2024", "2023", "2022", "2021"]
+
+
+# ---------------------------------------------------------------------------
+# Helpers privados
+# ---------------------------------------------------------------------------
+
+def _lookup_yahoo_row(self, data_type, yahoo_value, yahoo_inicial):
+    """Busca la fila de Yahoo para un concepto dado, con fallback a coincidencia parcial."""
+    try:
+        df_y = self.data_frames[data_type]['yahoo']
+        match = df_y.loc[df_y['Datos'] == yahoo_inicial]
+        if not match.empty:
+            return ["Yahoo", yahoo_value] + match.iloc[0].values[1:5].tolist()
+
+        if data_type != 'balance':
+            partial = df_y[df_y['Datos'].str.lower().str.contains(str(yahoo_inicial).lower(), na=False)]
+            if not partial.empty:
+                nombre_real = partial.iloc[0].get('Datos', 'N/A') if 'Datos' in partial.columns else 'N/A'
+                return ["Yahoo", nombre_real] + partial.iloc[0].values[1:5].tolist()
+        elif hasattr(self, 'df_yahoo') and not self.df_yahoo.empty:
+            muestra = self.df_yahoo.head(10).values.flatten().tolist()
+            if len(muestra) >= 5:
+                return ["Yahoo", yahoo_value] + muestra[1:5]
+    except Exception:
+        pass
+    return ["Yahoo", yahoo_value] + ["N/A"] * 4
+
+
+def _build_interleaved_df(self, source_df, data_type, display_columns):
+    """Intercala filas de Google, Yahoo y Macrotrends para un tipo de dato."""
+    interleaved = []
+    for i in range(len(source_df)):
+        row = source_df.iloc[i]
+        g_value  = row[GOOGLE_FINANCE];      g_inicial = row[GOOGLE_INICIAL]
+        y_value  = row[YAHOO_FINANCE];       y_inicial = row[YAHOO_INICIAL]
+        m_value  = row[MACROTRENDS];         m_inicial = row[MACROTRENDS_INICIAL]
+
+        try:
+            df_g = self.data_frames[data_type]['google']
+            g_vals = ["Google", g_value] + df_g.loc[df_g['Datos'] == g_inicial].values.flatten().tolist()[1:]
+        except (KeyError, IndexError, ValueError, AttributeError):
+            g_vals = ["Google", g_value] + ["N/A"] * 4
+
+        y_vals = _lookup_yahoo_row(self, data_type, y_value, y_inicial)
+
+        try:
+            df_m = self.data_frames[data_type]['macrotrends']
+            m_vals = ["Macrotrends", m_value] + df_m.loc[df_m['Datos'] == m_inicial].values.flatten().tolist()[1:]
+        except (KeyError, IndexError, ValueError):
+            m_vals = ["Macrotrends", m_value] + ["N/A"] * 4
+
+        for vals in (g_vals, y_vals, m_vals):
+            while len(vals) < 2 + len(_ALL_YEARS):
+                vals.append("N/A")
+
+        keys = ["Fuente", "Datos"] + _ALL_YEARS
+        g_dict = dict(zip(keys, g_vals[:2 + len(_ALL_YEARS)]))
+        y_dict = dict(zip(keys, y_vals[:2 + len(_ALL_YEARS)]))
+        m_dict = dict(zip(keys, m_vals[:2 + len(_ALL_YEARS)]))
+
+        interleaved.extend([
+            [g_dict.get(c, "N/A") for c in display_columns],
+            [y_dict.get(c, "N/A") for c in display_columns],
+            [m_dict.get(c, "N/A") for c in display_columns],
+            [""] * len(display_columns),
+        ])
+
+    df = pd.DataFrame(interleaved, columns=display_columns)
+    return df[:-1] if not df.empty else df
+
+
+def _set_grouped_table(table_view, df):
+    """Asigna un GroupedPandasModel a una tabla y aplica el delegado de bordes."""
+    model = GroupedPandasModel(df)
+    table_view.setModel(model)
+    table_view.resizeColumnsToContents()
+    table_view.horizontalHeader().setStretchLastSection(True)
+    table_view.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+    table_view.setItemDelegate(GroupFrameDelegate(table_view))
+
+
 def mostrar_datos_equivalentes(self):
     # Si hay un frame guardado de una búsqueda anterior, hacerlo visible nuevamente
     # Mostramos los controles si: 
@@ -228,270 +310,20 @@ def mostrar_datos_equivalentes(self):
     base_columns = ["Fuente", "Datos"]
     display_columns = base_columns + years_columns
 
-    # Intercalar los valores de Google, Yahoo y Macrotrends para balance
-    interleaved_balance = []
-    for i in range(len(balance_df)):
-        google_value = balance_df.iloc[i][GOOGLE_FINANCE]
-        yahoo_value = balance_df.iloc[i][YAHOO_FINANCE]
-        macrotrends_value = balance_df.iloc[i][MACROTRENDS]
-        google_inicial = balance_df.iloc[i][GOOGLE_INICIAL]
-        yahoo_inicial = balance_df.iloc[i][YAHOO_INICIAL]
-        macrotrends_inicial = balance_df.iloc[i][MACROTRENDS_INICIAL]
+    # Asegurar que self.data_frames existe antes de usarlo
+    if not hasattr(self, 'data_frames'):
+        self.data_frames = {
+            t: {'google': pd.DataFrame(), 'yahoo': pd.DataFrame(), 'macrotrends': pd.DataFrame()}
+            for t in ('balance', 'cashflow', 'income')
+        }
 
-        # Asegurar que self.data_frames existe antes de usarlo
-        if not hasattr(self, 'data_frames'):
-            # Si no existe, crear un diccionario vacío con la estructura necesaria
-            self.data_frames = {
-                'balance': {'google': pd.DataFrame(), 'yahoo': pd.DataFrame(), 'macrotrends': pd.DataFrame()},
-                'cashflow': {'google': pd.DataFrame(), 'yahoo': pd.DataFrame(), 'macrotrends': pd.DataFrame()},
-                'income': {'google': pd.DataFrame(), 'yahoo': pd.DataFrame(), 'macrotrends': pd.DataFrame()}
-            }
+    interleaved_balance_df  = _build_interleaved_df(self, balance_df,  'balance',  display_columns)
+    interleaved_cashflow_df = _build_interleaved_df(self, cashflow_df, 'cashflow', display_columns)
+    interleaved_income_df   = _build_interleaved_df(self, income_df,   'income',   display_columns)
 
-        # Obtener todos los valores anuales primero, con manejo seguro de errores
-        try:
-            google_row_values = ["Google", google_value] + self.data_frames['balance']['google'].loc[self.data_frames['balance']['google']['Datos'] == google_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError, AttributeError):
-            google_row_values = ["Google", google_value] + ["N/A", "N/A", "N/A", "N/A"]
-        
-        try:
-            yahoo_row_values = ["Yahoo", yahoo_value] + self.data_frames['balance']['yahoo'].loc[self.data_frames['balance']['yahoo']['Datos'] == yahoo_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError, AttributeError):
-            # Si el filtrado falla pero hay datos importados, mostrar una muestra
-            if hasattr(self, 'df_yahoo') and not self.df_yahoo.empty:
-                muestra = self.df_yahoo.head(10).values.flatten().tolist()
-                yahoo_row_values = ["Yahoo", yahoo_value] + muestra[1:5] if len(muestra) >= 5 else ["Yahoo", yahoo_value] + ["N/A", "N/A", "N/A", "N/A"]
-            else:
-                yahoo_row_values = ["Yahoo", yahoo_value] + ["N/A", "N/A", "N/A", "N/A"]
-        
-        try:
-            macrotrends_row_values = ["Macrotrends", macrotrends_value] + self.data_frames['balance']['macrotrends'].loc[self.data_frames['balance']['macrotrends']['Datos'] == macrotrends_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError, AttributeError):
-            macrotrends_row_values = ["Macrotrends", macrotrends_value] + ["N/A", "N/A", "N/A", "N/A"]
-
-        # Asegurarse de que todos los rows tienen la longitud correcta antes de crear el diccionario
-        all_years = ["2024", "2023", "2022", "2021"]
-        
-        # Asegurarse de que los valores tienen la longitud correcta antes de crear el diccionario
-        while len(google_row_values) < 2 + len(all_years):
-            google_row_values.append("N/A")
-        while len(yahoo_row_values) < 2 + len(all_years):
-            yahoo_row_values.append("N/A")
-        while len(macrotrends_row_values) < 2 + len(all_years):
-            macrotrends_row_values.append("N/A")
-            
-        # Limitar a la longitud máxima
-        google_row_full = google_row_values[:2+len(all_years)]
-        yahoo_row_full = yahoo_row_values[:2+len(all_years)]
-        macrotrends_row_full = macrotrends_row_values[:2+len(all_years)]
-        
-        # Crear un diccionario de filas completas para buscar por año más tarde
-        google_row_dict = dict(zip(["Fuente", "Datos"] + all_years, google_row_full))
-        yahoo_row_dict = dict(zip(["Fuente", "Datos"] + all_years, yahoo_row_full))
-        macrotrends_row_dict = dict(zip(["Fuente", "Datos"] + all_years, macrotrends_row_full))
-        
-        # Filtrar las filas según los años seleccionados, con manejo seguro de claves no encontradas
-        google_row = []
-        yahoo_row = []
-        macrotrends_row = []
-        
-        for col in display_columns:
-            google_row.append(google_row_dict.get(col, "N/A"))
-            yahoo_row.append(yahoo_row_dict.get(col, "N/A"))
-            macrotrends_row.append(macrotrends_row_dict.get(col, "N/A"))
-        
-        interleaved_balance.extend([google_row, yahoo_row, macrotrends_row, [""] * len(display_columns)])  # Añadir fila vacía
-
-    interleaved_balance_df = pd.DataFrame(interleaved_balance, columns=display_columns)
-    if not interleaved_balance_df.empty:
-        interleaved_balance_df = interleaved_balance_df[:-1]  # Eliminar la última fila
-
-    # Procesar datos de cashflow
-    # ...código existente para procesamiento de cashflow...
-    interleaved_cashflow = []
-    for i in range(len(cashflow_df)):
-        google_value = cashflow_df.iloc[i][GOOGLE_FINANCE]
-        yahoo_value = cashflow_df.iloc[i][YAHOO_FINANCE]
-        macrotrends_value = cashflow_df.iloc[i][MACROTRENDS]
-        google_inicial = cashflow_df.iloc[i][GOOGLE_INICIAL]
-        yahoo_inicial = cashflow_df.iloc[i][YAHOO_INICIAL]
-        macrotrends_inicial = cashflow_df.iloc[i][MACROTRENDS_INICIAL]
-
-        # Obtener todos los valores anuales primero, con manejo seguro de errores
-        try:
-            google_row_values = ["Google", google_value] + self.data_frames['cashflow']['google'].loc[self.data_frames['cashflow']['google']['Datos'] == google_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError):
-            google_row_values = ["Google", google_value] + ["N/A", "N/A", "N/A", "N/A"]
-        
-        try:
-            # Buscar coincidencia exacta en el filtrado de Yahoo
-            match = self.data_frames['cashflow']['yahoo'].loc[self.data_frames['cashflow']['yahoo']['Datos'] == yahoo_inicial]
-            if not match.empty:
-                yahoo_row_values = ["Yahoo", yahoo_value] + match.iloc[0].values[1:5].tolist()
-            else:
-                # Buscar coincidencia parcial (case-insensitive, contiene)
-                partial = self.data_frames['cashflow']['yahoo'][self.data_frames['cashflow']['yahoo']['Datos'].str.lower().str.contains(str(yahoo_inicial).lower(), na=False)]
-                if not partial.empty:
-                    row = partial.iloc[0].values
-                    nombre_real = partial.iloc[0]['Datos'] if 'Datos' in partial.columns else 'N/A'
-                    print(f"[DATOS EQUIVALENTES][Yahoo][CASHFLOW] Coincidencia parcial para '{yahoo_value}'/'{yahoo_inicial}': '{nombre_real}'")
-                    yahoo_row_values = ["Yahoo", nombre_real] + list(row[1:5])
-                else:
-                    print(f"[DATOS EQUIVALENTES][Yahoo][CASHFLOW] Sin coincidencia para '{yahoo_value}'/'{yahoo_inicial}'.")
-                    yahoo_row_values = ["Yahoo", yahoo_value] + ["N/A", "N/A", "N/A", "N/A"]
-        except Exception as ex:
-            print(f"[DATOS EQUIVALENTES][Yahoo][CASHFLOW] Excepción para '{yahoo_value}': {ex}")
-            yahoo_row_values = ["Yahoo", yahoo_value] + ["N/A", "N/A", "N/A", "N/A"]
-        
-        try:
-            macrotrends_row_values = ["Macrotrends", macrotrends_value] + self.data_frames['cashflow']['macrotrends'].loc[self.data_frames['cashflow']['macrotrends']['Datos'] == macrotrends_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError):
-            macrotrends_row_values = ["Macrotrends", macrotrends_value] + ["N/A", "N/A", "N/A", "N/A"]
-
-        # Asegurarse de que todos los rows tienen la longitud correcta
-        all_years = ["2024", "2023", "2022", "2021"]
-        
-        # Asegurarse de que los valores tienen la longitud correcta antes de crear el diccionario
-        while len(google_row_values) < 2 + len(all_years):
-            google_row_values.append("N/A")
-        while len(yahoo_row_values) < 2 + len(all_years):
-            yahoo_row_values.append("N/A")
-        while len(macrotrends_row_values) < 2 + len(all_years):
-            macrotrends_row_values.append("N/A")
-            
-        # Limitar a la longitud máxima
-        google_row_full = google_row_values[:2+len(all_years)]
-        yahoo_row_full = yahoo_row_values[:2+len(all_years)]
-        macrotrends_row_full = macrotrends_row_values[:2+len(all_years)]
-        
-        # Crear un diccionario de filas completas para buscar por año más tarde
-        google_row_dict = dict(zip(["Fuente", "Datos"] + all_years, google_row_full))
-        yahoo_row_dict = dict(zip(["Fuente", "Datos"] + all_years, yahoo_row_full))
-        macrotrends_row_dict = dict(zip(["Fuente", "Datos"] + all_years, macrotrends_row_full))
-        
-        # Filtrar las filas según los años seleccionados, con manejo seguro de claves no encontradas
-        google_row = []
-        yahoo_row = []
-        macrotrends_row = []
-        
-        for col in display_columns:
-            google_row.append(google_row_dict.get(col, "N/A"))
-            yahoo_row.append(yahoo_row_dict.get(col, "N/A"))
-            macrotrends_row.append(macrotrends_row_dict.get(col, "N/A"))
-
-        interleaved_cashflow.extend([google_row, yahoo_row, macrotrends_row, [""] * len(display_columns)])  # Añadir fila vacía
-
-    interleaved_cashflow_df = pd.DataFrame(interleaved_cashflow, columns=display_columns)
-    if not interleaved_cashflow_df.empty:
-        interleaved_cashflow_df = interleaved_cashflow_df[:-1]  # Eliminar la última fila
-
-    # Procesar datos de income
-    # ...código existente para procesamiento de income...
-    interleaved_income = []
-    for i in range(len(income_df)):
-        google_value = income_df.iloc[i][GOOGLE_FINANCE]
-        yahoo_value = income_df.iloc[i][YAHOO_FINANCE]
-        macrotrends_value = income_df.iloc[i][MACROTRENDS]
-        google_inicial = income_df.iloc[i][GOOGLE_INICIAL]
-        yahoo_inicial = income_df.iloc[i][YAHOO_INICIAL]
-        macrotrends_inicial = income_df.iloc[i][MACROTRENDS_INICIAL]
-
-        # Obtener todos los valores anuales primero, con manejo seguro de errores
-        try:
-            google_row_values = ["Google", google_value] + self.data_frames['income']['google'].loc[self.data_frames['income']['google']['Datos'] == google_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError):
-            google_row_values = ["Google", google_value] + ["N/A", "N/A", "N/A", "N/A"]
-        
-        try:
-            match = self.data_frames['income']['yahoo'].loc[self.data_frames['income']['yahoo']['Datos'] == yahoo_inicial]
-            if not match.empty:
-                yahoo_row_values = ["Yahoo", yahoo_value] + match.iloc[0].values[1:5].tolist()
-            else:
-                # Buscar coincidencia parcial (case-insensitive, contiene)
-                partial = self.data_frames['income']['yahoo'][self.data_frames['income']['yahoo']['Datos'].str.lower().str.contains(str(yahoo_inicial).lower(), na=False)]
-                if not partial.empty:
-                    row = partial.iloc[0].values
-                    nombre_real = partial.iloc[0]['Datos'] if 'Datos' in partial.columns else 'N/A'
-                    print(f"[DATOS EQUIVALENTES][Yahoo][INCOME] Coincidencia parcial para '{yahoo_value}'/'{yahoo_inicial}': '{nombre_real}'")
-                    yahoo_row_values = ["Yahoo", nombre_real] + list(row[1:5])
-                else:
-                    print(f"[DATOS EQUIVALENTES][Yahoo][INCOME] Sin coincidencia para '{yahoo_value}'/'{yahoo_inicial}'.")
-                    yahoo_row_values = ["Yahoo", yahoo_value] + ["N/A", "N/A", "N/A", "N/A"]
-        except Exception as ex:
-            print(f"[DATOS EQUIVALENTES][Yahoo][INCOME] Excepción para '{yahoo_value}': {ex}")
-            yahoo_row_values = ["Yahoo", yahoo_value] + ["N/A", "N/A", "N/A", "N/A"]
-        
-        try:
-            macrotrends_row_values = ["Macrotrends", macrotrends_value] + self.data_frames['income']['macrotrends'].loc[self.data_frames['income']['macrotrends']['Datos'] == macrotrends_inicial].values.flatten().tolist()[1:]
-        except (KeyError, IndexError, ValueError):
-            macrotrends_row_values = ["Macrotrends", macrotrends_value] + ["N/A", "N/A", "N/A", "N/A"]
-
-        # Asegurarse de que todos los rows tienen la longitud correcta
-        all_years = ["2024", "2023", "2022", "2021"]
-        
-        # Asegurarse de que los valores tienen la longitud correcta antes de crear el diccionario
-        while len(google_row_values) < 2 + len(all_years):
-            google_row_values.append("N/A")
-        while len(yahoo_row_values) < 2 + len(all_years):
-            yahoo_row_values.append("N/A")
-        while len(macrotrends_row_values) < 2 + len(all_years):
-            macrotrends_row_values.append("N/A")
-            
-        # Limitar a la longitud máxima
-        google_row_full = google_row_values[:2+len(all_years)]
-        yahoo_row_full = yahoo_row_values[:2+len(all_years)]
-        macrotrends_row_full = macrotrends_row_values[:2+len(all_years)]
-        
-        # Crear un diccionario de filas completas para buscar por año más tarde
-        google_row_dict = dict(zip(["Fuente", "Datos"] + all_years, google_row_full))
-        yahoo_row_dict = dict(zip(["Fuente", "Datos"] + all_years, yahoo_row_full))
-        macrotrends_row_dict = dict(zip(["Fuente", "Datos"] + all_years, macrotrends_row_full))
-        
-        # Filtrar las filas según los años seleccionados, con manejo seguro de claves no encontradas
-        google_row = []
-        yahoo_row = []
-        macrotrends_row = []
-        
-        for col in display_columns:
-            google_row.append(google_row_dict.get(col, "N/A"))
-            yahoo_row.append(yahoo_row_dict.get(col, "N/A"))
-            macrotrends_row.append(macrotrends_row_dict.get(col, "N/A"))
-
-        interleaved_income.extend([google_row, yahoo_row, macrotrends_row, [""] * len(display_columns)])  # Añadir fila vacía
-
-    interleaved_income_df = pd.DataFrame(interleaved_income, columns=display_columns)
-    if not interleaved_income_df.empty:
-        interleaved_income_df = interleaved_income_df[:-1]  # Eliminar la última fila
-
-    # Mostrar los datos equivalentes en las tablas
-    model_balance = GroupedPandasModel(interleaved_balance_df)
-    self.tableView_balance.setModel(model_balance)
-    self.tableView_balance.resizeColumnsToContents()
-    self.tableView_balance.horizontalHeader().setStretchLastSection(True)
-    self.tableView_balance.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-    
-    # Aplicar el delegado para dibujar los bordes de grupo
-    balance_delegate = GroupFrameDelegate(self.tableView_balance)
-    self.tableView_balance.setItemDelegate(balance_delegate)
-
-    model_cashflow = GroupedPandasModel(interleaved_cashflow_df)
-    self.tableView_cash_flow.setModel(model_cashflow)
-    self.tableView_cash_flow.resizeColumnsToContents()
-    self.tableView_cash_flow.horizontalHeader().setStretchLastSection(True)
-    self.tableView_cash_flow.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-    
-    # Aplicar el delegado para dibujar los bordes de grupo
-    cashflow_delegate = GroupFrameDelegate(self.tableView_cash_flow)
-    self.tableView_cash_flow.setItemDelegate(cashflow_delegate)
-
-    model_income = GroupedPandasModel(interleaved_income_df)
-    self.tableView_income_statement.setModel(model_income)
-    self.tableView_income_statement.resizeColumnsToContents()
-    self.tableView_income_statement.horizontalHeader().setStretchLastSection(True)
-    self.tableView_income_statement.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
-    
-    # Aplicar el delegado para dibujar los bordes de grupo
-    income_delegate = GroupFrameDelegate(self.tableView_income_statement)
-    self.tableView_income_statement.setItemDelegate(income_delegate)
+    _set_grouped_table(self.tableView_balance,          interleaved_balance_df)
+    _set_grouped_table(self.tableView_cash_flow,        interleaved_cashflow_df)
+    _set_grouped_table(self.tableView_income_statement, interleaved_income_df)
 
     # Guardar los dataframes para uso posterior al hacer clic
     self.interleaved_balance_df = interleaved_balance_df
