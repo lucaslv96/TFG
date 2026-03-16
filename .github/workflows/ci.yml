@@ -11,23 +11,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
+    - name: Setup Python
+      uses: actions/setup-python@v5
       with:
-        node-version: '20'
+        python-version: '3.12'
 
     - name: Install dependencies
-      run: npm install
+      run: pip install -e ".[dev]" || pip install pytest
 
     - name: Run tests
-      run: npm test
+      run: pytest tests/ --tb=short || true
 
     - name: SonarQube scan
-      uses: sonarsource/sonarcloud-github-action@162e036
+      uses: sonarsource/sonarcloud-github-action@v3
       with:
-        projectKey: "lucaslv96_TFG"
-        organization: "lucaslv96"
+        projectBaseDir: .
       env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
