@@ -35,3 +35,23 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Logs
+*.log
+
+# Configuración local
+.env
+*.local
+
+# SonarQube / IntelliJ / VSCode
+.idea/
+.vscode/
+*.iml
+
+# Ignorar secretos (aunque no deberían estar en repo)
+.github/secrets.yml
