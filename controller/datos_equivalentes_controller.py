@@ -2,7 +2,7 @@ import re  # Importar la biblioteca re
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pandas as pd
 from model.data_manager import PandasModel  # Importación correcta
-from model.database_manager import DataManager
+from model.database import DataManager
 from controller.chart_controller import ChartWindow
 
 # Modelo de tabla personalizado que soporta grupos

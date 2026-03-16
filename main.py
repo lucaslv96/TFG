@@ -4,14 +4,15 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from view.main_view import Ui_MainWindow
 from view.equivalencias_view import EquivalenciasWindowUI
-from view.ayuda_view import Ui_AyudaWindow  
-from model.database_setup import initialize_database  
+from view.ayuda_view import Ui_AyudaWindow
+from model.database import initialize_database
+from config import ICON_PATH
 
 class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         self.setupUi(self)
-        self.setWindowIcon(QIcon('resources/icon.ico'))
+        self.setWindowIcon(QIcon(str(ICON_PATH)))
         self.actionEquivalencias.triggered.connect(self.open_equivalencias_window)
         self.actionAcerca_de.triggered.connect(lambda: self.open_ayuda_window('acerca_de'))
         self.actionDocumentaci_n.triggered.connect(lambda: self.open_ayuda_window('documentacion'))  
@@ -40,7 +41,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 def main():
     initialize_database()
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon('resources/icon.ico'))
+    app.setWindowIcon(QIcon(str(ICON_PATH)))
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())

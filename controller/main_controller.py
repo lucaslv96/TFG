@@ -4,9 +4,8 @@ import pandas as pd
 import os
 from model.data_manager import filtrar_datos_google, filtrar_datos_yahoo, filtrar_datos_macrotrends, PandasModel, filtrar_datos_yahoo_importados
 from model.data_import_export import export_to_excel, import_from_excel, export_to_sqlite, import_from_sqlite
-from model.database_manager import DataManager
-from scrappers.macrotrends_scraper import MacrotrendsScraper
-from scrappers.yahoo_finance_scraper import YahooFinanceScraper
+from scrapers.macrotrends_scraper import MacrotrendsScraper
+from scrapers.yahoo_finance_scraper import YahooFinanceScraper
 from controller.datos_equivalentes_controller import mostrar_datos_equivalentes
 
 class Worker(QThread):
@@ -17,7 +16,7 @@ class Worker(QThread):
         self.ticker = ticker
 
     def run(self):
-        from scrappers.google_finance_scraper import GoogleFinanceScraper
+        from scrapers.google_finance_scraper import GoogleFinanceScraper
         scraper = GoogleFinanceScraper()
         df = scraper.get_stock_data(self.ticker)
         self.result.emit(df)

@@ -1,13 +1,14 @@
 import pandas as pd
 import sqlite3
 import os
+from config import EXPORT_DIR
 
 def export_to_excel(google_df, yahoo_df, macrotrends_df, ticker):
     # Crear el directorio de exportación si no existe
-    if not os.path.exists('export'):
-        os.makedirs('export')
-    
-    filepath = os.path.join('export', f'{ticker}.xlsx')
+    if not os.path.exists(EXPORT_DIR):
+        os.makedirs(EXPORT_DIR)
+
+    filepath = os.path.join(EXPORT_DIR, f'{ticker}.xlsx')
     with pd.ExcelWriter(filepath) as writer:
         if google_df is not None and not google_df.empty:
             # Para Google Finance, siempre preservar la estructura del índice convirtiéndolo en una columna 'Datos'
@@ -53,10 +54,10 @@ def import_from_excel(filepath):
 
 def export_to_sqlite(google_df, yahoo_df, macrotrends_df, ticker):
     # Crear el directorio de exportación si no existe
-    if not os.path.exists('export'):
-        os.makedirs('export')
-    
-    filepath = os.path.join('export', f'{ticker}.sqlite')
+    if not os.path.exists(EXPORT_DIR):
+        os.makedirs(EXPORT_DIR)
+
+    filepath = os.path.join(EXPORT_DIR, f'{ticker}.sqlite')
     conn = sqlite3.connect(filepath)
     if google_df is not None and not google_df.empty:
         # Para Google Finance, siempre preservar la estructura del índice convirtiéndolo en una columna 'Datos'

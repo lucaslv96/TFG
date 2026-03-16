@@ -1,8 +1,9 @@
 import sqlite3
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import QMessageBox
+from config import DB_PATH
 
-_bbdd_ = 'bbdd/equivalencias.sqlite'
+_bbdd_ = str(DB_PATH)
 
 # Definir constantes para las consultas SQL
 UPDATE_MACROTRENDS = '''UPDATE macrotrends SET dato_actual = ? WHERE id = ?'''

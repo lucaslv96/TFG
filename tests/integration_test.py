@@ -1,14 +1,10 @@
 import os
-import sys
 import time
 import pandas as pd
 
-# Añadir el directorio raíz al path para poder importar los módulos del proyecto
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from scrappers.yahoo_finance_scraper import YahooFinanceScraper
-from scrappers.google_finance_scraper import GoogleFinanceScraper
-from scrappers.macrotrends_scraper import MacrotrendsScraper
+from scrapers.yahoo_finance_scraper import YahooFinanceScraper
+from scrapers.google_finance_scraper import GoogleFinanceScraper
+from scrapers.macrotrends_scraper import MacrotrendsScraper
 from model.data_import_export import export_to_excel, import_from_excel, export_to_sqlite, import_from_sqlite
 from model.data_manager import filtrar_datos_google, filtrar_datos_yahoo, filtrar_datos_macrotrends
 
@@ -50,22 +46,19 @@ def test_complete_flow(ticker='AAPL'):
     # Step 2: Exportar datos
     print("\n2. Exportando datos...")
     
-    # Si no existe el directorio export, crearlo
-    if not os.path.exists('export'):
-        os.makedirs('export')
-    
+    from config import EXPORT_DIR
     # Exportar a Excel
     print("   - Exportando a Excel...")
     start_time = time.time()
     export_to_excel(google_df, yahoo_df, macrotrends_df, ticker)
-    excel_path = os.path.join('export', f'{ticker}.xlsx')
+    excel_path = os.path.join(EXPORT_DIR, f'{ticker}.xlsx')
     print(f"     Completado en {time.time() - start_time:.2f} segundos")
-    
+
     # Exportar a SQLite
     print("   - Exportando a SQLite...")
     start_time = time.time()
     export_to_sqlite(google_df, yahoo_df, macrotrends_df, ticker)
-    sqlite_path = os.path.join('export', f'{ticker}.sqlite')
+    sqlite_path = os.path.join(EXPORT_DIR, f'{ticker}.sqlite')
     print(f"     Completado en {time.time() - start_time:.2f} segundos")
     print(f"     Archivo creado: {os.path.abspath(sqlite_path)}")
     

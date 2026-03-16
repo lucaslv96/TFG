@@ -1,17 +1,13 @@
 import os
-import sys
 import time
 import statistics
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-# Añadir el directorio raíz al path para poder importar los módulos del proyecto
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from scrappers.yahoo_finance_scraper import YahooFinanceScraper
-from scrappers.google_finance_scraper import GoogleFinanceScraper
-from scrappers.macrotrends_scraper import MacrotrendsScraper
+from scrapers.yahoo_finance_scraper import YahooFinanceScraper
+from scrapers.google_finance_scraper import GoogleFinanceScraper
+from scrapers.macrotrends_scraper import MacrotrendsScraper
 from model.data_import_export import export_to_excel, import_from_excel, export_to_sqlite, import_from_sqlite
 
 def run_performance_test(function, args, name, iterations=10):

@@ -1,6 +1,101 @@
 import pandas as pd
 from PyQt5.QtCore import QAbstractTableModel, Qt
-from scrappers.yahoo_finance_scraper import YahooFinanceScraper
+from scrapers.yahoo_finance_scraper import YahooFinanceScraper
+
+# ---------------------------------------------------------------------------
+# Campos válidos de Yahoo Finance por tipo de estado financiero
+# ---------------------------------------------------------------------------
+_YAHOO_BALANCE_ITEMS = [
+    'Stockholders Equity', 'Current Assets', 'Other Equity Adjustments',
+    'Investments And Advances', 'Common Stock', 'Current Deferred Revenue',
+    'Current Debt', 'Payables', 'Invested Capital',
+    'Other Non Current Liabilities',
+    'Long Term Debt And Capital Lease Obligation', 'Properties',
+    'Total Non Current Liabilities Net Minority Interest',
+    'Cash Cash Equivalents And Short Term Investments', 'Commercial Paper',
+    'Long Term Debt', 'Other Receivables', 'Cash And Cash Equivalents',
+    'Share Issued', 'Total Assets', 'Other Current Borrowings',
+    'Total Capitalization', 'Current Debt And Capital Lease Obligation',
+    'Total Tax Payable', 'Available For Sale Securities', 'Net PPE',
+    'Current Capital Lease Obligation', 'Other Current Assets',
+    'Net Tangible Assets', 'Total Liabilities Net Minority Interest',
+    'Accounts Payable', 'Other Properties', 'Current Deferred Liabilities',
+    'Current Liabilities', 'Income Tax Payable', 'Receivables',
+    'Common Stock Equity', 'Gains Losses Not Affecting Retained Earnings',
+    'Tradeand Other Payables Non Current', 'Total Non Current Assets',
+    'Machinery Furniture Equipment', 'Other Investments', 'Leases',
+    'Investmentin Financial Assets', 'Non Current Deferred Assets',
+    'Capital Stock', 'Total Debt', 'Other Non Current Assets',
+    'Accounts Receivable', 'Gross PPE', 'Inventory', 'Cash Financial',
+    'Accumulated Depreciation', 'Other Current Liabilities',
+    'Treasury Shares Number', 'Working Capital', 'Capital Lease Obligations',
+    'Total Equity Gross Minority Interest', 'Net Debt', 'Tangible Book Value',
+    'Retained Earnings', 'Payables And Accrued Expenses',
+    'Land And Improvements', 'Other Short Term Investments',
+    'Non Current Deferred Taxes Assets', 'Ordinary Shares Number',
+    'Cash Equivalents', 'Long Term Capital Lease Obligation',
+]
+
+_YAHOO_INCOME_ITEMS = [
+    'Basic EPS', 'Interest Income Non Operating', 'Operating Expense',
+    'Selling General And Administration', 'Diluted EPS',
+    'Net Income From Continuing Operation Net Minority Interest',
+    'Tax Rate For Calcs', 'Net Interest Income', 'Reconciled Cost Of Revenue',
+    'Interest Expense', 'Operating Income', 'Other Non Operating Income Expenses',
+    'EBIT', 'Gross Profit', 'Interest Expense Non Operating', 'Basic Average Shares',
+    'Net Income Common Stockholders', 'Diluted NI Availto Com Stockholders',
+    'Research And Development', 'EBITDA', 'Interest Income', 'Normalized Income',
+    'Pretax Income', 'Other Income Expense', 'Diluted Average Shares',
+    'Normalized EBITDA', 'Reconciled Depreciation', 'Tax Effect Of Unusual Items',
+    'Cost Of Revenue', 'Total Expenses', 'Tax Provision',
+    'Total Operating Income As Reported', 'Operating Revenue',
+    'Net Income From Continuing And Discontinued Operation',
+    'Net Non Operating Interest Income Expense', 'Total Revenue', 'Net Income',
+    'Net Income Continuous Operations', 'Net Income Including Noncontrolling Interests',
+]
+
+_YAHOO_CASHFLOW_ITEMS = [
+    'Issuance Of Debt', 'Net Issuance Payments Of Debt',
+    'Depreciation And Amortization', 'Change In Payable',
+    'Interest Paid Supplemental Data', 'Change In Inventory',
+    'Deferred Tax', 'Repayment Of Debt', 'Change In Other Current Assets',
+    'Change In Other Current Liabilities', 'Changes In Account Receivables',
+    'Other Non Cash Items', 'Cash Flow From Continuing Investing Activities',
+    'Net Business Purchase And Sale', 'Operating Cash Flow',
+    'Financing Cash Flow', 'Issuance Of Capital Stock',
+    'Net Long Term Debt Issuance', 'Common Stock Issuance',
+    'Change In Account Payable', 'Capital Expenditure', 'Deferred Income Tax',
+    'Depreciation Amortization Depletion', 'Changes In Cash',
+    'Net Short Term Debt Issuance', 'Common Stock Dividend Paid',
+    'Sale Of Investment', 'Stock Based Compensation',
+    'Long Term Debt Payments', 'Cash Flow From Continuing Financing Activities',
+    'Change In Working Capital', 'Investing Cash Flow',
+    'Cash Flow From Continuing Operating Activities', 'Purchase Of Investment',
+    'Repurchase Of Capital Stock', 'Beginning Cash Position',
+    'Common Stock Payments', 'Long Term Debt Issuance',
+    'Net Common Stock Issuance', 'Purchase Of Business',
+    'Income Tax Paid Supplemental Data', 'Net Income From Continuing Operations',
+    'Net Other Investing Changes', 'Free Cash Flow',
+    'Net Investment Purchase And Sale', 'Cash Dividends Paid',
+    'End Cash Position', 'Net PPE Purchase And Sale', 'Change In Receivables',
+    'Net Other Financing Charges', 'Change In Other Working Capital',
+    'Change In Payables And Accrued Expense', 'Purchase Of PPE',
+]
+
+_YAHOO_ITEMS = {
+    'balance':  _YAHOO_BALANCE_ITEMS,
+    'income':   _YAHOO_INCOME_ITEMS,
+    'cashflow': _YAHOO_CASHFLOW_ITEMS,
+}
+
+_YAHOO_FALLBACK_KEYWORDS = {
+    'balance':  ['asset', 'liability', 'equity', 'debt', 'cash', 'inventory',
+                 'receivable', 'payable', 'stock', 'retained', 'capital'],
+    'income':   ['revenue', 'income', 'expense', 'profit', 'ebit', 'ebitda',
+                 'eps', 'tax', 'operating', 'cost', 'gross'],
+    'cashflow': ['cash', 'flow', 'depreciation', 'amortization', 'change',
+                 'investment', 'financing', 'operating', 'dividend', 'issuance'],
+}
 
 # Añade la clase PandasModel directamente en este archivo
 class PandasModel(QAbstractTableModel):
@@ -129,109 +224,16 @@ def filtrar_datos_yahoo(ticker, tipo_dato):
     """
     Filtra los datos de Yahoo Finance según el tipo de dato solicitado.
     """
+    if tipo_dato not in _YAHOO_ITEMS:
+        return pd.DataFrame()
+
     scraper = YahooFinanceScraper()
-    
-    if tipo_dato == 'balance':
-        data = scraper.get_financial_data(ticker, 'balance')
-    elif tipo_dato == 'income':
-        data = scraper.get_financial_data(ticker, 'income')
-    elif tipo_dato == 'cashflow':
-        data = scraper.get_financial_data(ticker, 'cashflow')
-    else:
-        return pd.DataFrame()  # Devolver DataFrame vacío si el tipo de dato no es válido
-    
-    # Verificar que el DataFrame no está vacío y contiene la columna 'Datos'
+    data = scraper.get_financial_data(ticker, tipo_dato)
+
     if data.empty or 'Datos' not in data.columns:
-        # Si está vacío o no tiene la columna 'Datos', devolver DataFrame vacío con estructura correcta
         return pd.DataFrame(columns=["Datos", "2024", "2023", "2022", "2021"])
-    
-    # Balance sheet
-    if tipo_dato == 'balance':
-        balance_items = [
-            'Stockholders Equity', 'Current Assets', 'Other Equity Adjustments', 
-            'Investments And Advances', 'Common Stock', 'Current Deferred Revenue', 
-            'Current Debt', 'Payables', 'Invested Capital', 
-            'Other Non Current Liabilities', 
-            'Long Term Debt And Capital Lease Obligation', 'Properties', 
-            'Total Non Current Liabilities Net Minority Interest', 
-            'Cash Cash Equivalents And Short Term Investments', 'Commercial Paper', 
-            'Long Term Debt', 'Other Receivables', 'Cash And Cash Equivalents', 
-            'Share Issued', 'Total Assets', 'Other Current Borrowings', 
-            'Total Capitalization', 'Current Debt And Capital Lease Obligation', 
-            'Total Tax Payable', 'Available For Sale Securities', 'Net PPE', 
-            'Current Capital Lease Obligation', 'Other Current Assets', 
-            'Net Tangible Assets', 'Total Liabilities Net Minority Interest', 
-            'Accounts Payable', 'Other Properties', 'Current Deferred Liabilities', 
-            'Current Liabilities', 'Income Tax Payable', 'Receivables', 
-            'Common Stock Equity', 'Gains Losses Not Affecting Retained Earnings', 
-            'Tradeand Other Payables Non Current', 'Total Non Current Assets', 
-            'Machinery Furniture Equipment', 'Other Investments', 'Leases', 
-            'Investmentin Financial Assets', 'Non Current Deferred Assets', 
-            'Capital Stock', 'Total Debt', 'Other Non Current Assets', 
-            'Accounts Receivable', 'Gross PPE', 'Inventory', 'Cash Financial', 
-            'Accumulated Depreciation', 'Other Current Liabilities', 
-            'Treasury Shares Number', 'Working Capital', 'Capital Lease Obligations', 
-            'Total Equity Gross Minority Interest', 'Net Debt', 'Tangible Book Value', 
-            'Retained Earnings', 'Payables And Accrued Expenses', 
-            'Land And Improvements', 'Other Short Term Investments', 
-            'Non Current Deferred Taxes Assets', 'Ordinary Shares Number', 
-            'Cash Equivalents', 'Long Term Capital Lease Obligation'
-        ]
-        filtered_df = data.loc[data['Datos'].astype(str).isin(balance_items)]
-        
-    # Income statement
-    elif tipo_dato == 'income':
-        income_items = [
-            'Basic EPS', 'Interest Income Non Operating', 'Operating Expense', 
-            'Selling General And Administration', 'Diluted EPS', 
-            'Net Income From Continuing Operation Net Minority Interest', 
-            'Tax Rate For Calcs', 'Net Interest Income', 'Reconciled Cost Of Revenue', 
-            'Interest Expense', 'Operating Income', 'Other Non Operating Income Expenses', 
-            'EBIT', 'Gross Profit', 'Interest Expense Non Operating', 'Basic Average Shares', 
-            'Net Income Common Stockholders', 'Diluted NI Availto Com Stockholders', 
-            'Research And Development', 'EBITDA', 'Interest Income', 'Normalized Income', 
-            'Pretax Income', 'Other Income Expense', 'Diluted Average Shares', 
-            'Normalized EBITDA', 'Reconciled Depreciation', 'Tax Effect Of Unusual Items', 
-            'Cost Of Revenue', 'Total Expenses', 'Tax Provision', 
-            'Total Operating Income As Reported', 'Operating Revenue', 
-            'Net Income From Continuing And Discontinued Operation', 
-            'Net Non Operating Interest Income Expense', 'Total Revenue', 'Net Income', 
-            'Net Income Continuous Operations', 'Net Income Including Noncontrolling Interests'
-        ]
-        filtered_df = data.loc[data['Datos'].astype(str).isin(income_items)]
-        
-    # Cash flow
-    elif tipo_dato == 'cashflow':
-        cashflow_items = [
-            'Issuance Of Debt', 'Net Issuance Payments Of Debt', 
-            'Depreciation And Amortization', 'Change In Payable', 
-            'Interest Paid Supplemental Data', 'Change In Inventory', 
-            'Deferred Tax', 'Repayment Of Debt', 'Change In Other Current Assets', 
-            'Change In Other Current Liabilities', 'Changes In Account Receivables', 
-            'Other Non Cash Items', 'Cash Flow From Continuing Investing Activities', 
-            'Net Business Purchase And Sale', 'Operating Cash Flow', 
-            'Financing Cash Flow', 'Issuance Of Capital Stock', 
-            'Net Long Term Debt Issuance', 'Common Stock Issuance', 
-            'Change In Account Payable', 'Capital Expenditure', 'Deferred Income Tax', 
-            'Depreciation Amortization Depletion', 'Changes In Cash', 
-            'Net Short Term Debt Issuance', 'Common Stock Dividend Paid', 
-            'Sale Of Investment', 'Stock Based Compensation', 
-            'Long Term Debt Payments', 'Cash Flow From Continuing Financing Activities', 
-            'Change In Working Capital', 'Investing Cash Flow', 
-            'Cash Flow From Continuing Operating Activities', 'Purchase Of Investment', 
-            'Repurchase Of Capital Stock', 'Beginning Cash Position', 
-            'Common Stock Payments', 'Long Term Debt Issuance', 
-            'Net Common Stock Issuance', 'Purchase Of Business', 
-            'Income Tax Paid Supplemental Data', 'Net Income From Continuing Operations', 
-            'Net Other Investing Changes', 'Free Cash Flow', 
-            'Net Investment Purchase And Sale', 'Cash Dividends Paid', 
-            'End Cash Position', 'Net PPE Purchase And Sale', 'Change In Receivables', 
-            'Net Other Financing Charges', 'Change In Other Working Capital', 
-            'Change In Payables And Accrued Expense', 'Purchase Of PPE'
-        ]
-        filtered_df = data.loc[data['Datos'].astype(str).isin(cashflow_items)]
-    
-    return filtered_df
+
+    return data.loc[data['Datos'].astype(str).isin(_YAHOO_ITEMS[tipo_dato])]
 
 def filtrar_datos_yahoo_importados(yahoo_df, tipo_dato):
     """
@@ -240,114 +242,17 @@ def filtrar_datos_yahoo_importados(yahoo_df, tipo_dato):
     """
     if yahoo_df.empty or 'Datos' not in yahoo_df.columns:
         return pd.DataFrame(columns=["Datos", "2024", "2023", "2022", "2021"])
-    
-    if tipo_dato == 'balance':
-        balance_items = [
-            'Stockholders Equity', 'Current Assets', 'Other Equity Adjustments', 
-            'Investments And Advances', 'Common Stock', 'Current Deferred Revenue', 
-            'Current Debt', 'Payables', 'Invested Capital', 
-            'Other Non Current Liabilities', 
-            'Long Term Debt And Capital Lease Obligation', 'Properties', 
-            'Total Non Current Liabilities Net Minority Interest', 
-            'Cash Cash Equivalents And Short Term Investments', 'Commercial Paper', 
-            'Long Term Debt', 'Other Receivables', 'Cash And Cash Equivalents', 
-            'Share Issued', 'Total Assets', 'Other Current Borrowings', 
-            'Total Capitalization', 'Current Debt And Capital Lease Obligation', 
-            'Total Tax Payable', 'Available For Sale Securities', 'Net PPE', 
-            'Current Capital Lease Obligation', 'Other Current Assets', 
-            'Net Tangible Assets', 'Total Liabilities Net Minority Interest', 
-            'Accounts Payable', 'Other Properties', 'Current Deferred Liabilities', 
-            'Current Liabilities', 'Income Tax Payable', 'Receivables', 
-            'Common Stock Equity', 'Gains Losses Not Affecting Retained Earnings', 
-            'Tradeand Other Payables Non Current', 'Total Non Current Assets', 
-            'Machinery Furniture Equipment', 'Other Investments', 'Leases', 
-            'Investmentin Financial Assets', 'Non Current Deferred Assets', 
-            'Capital Stock', 'Total Debt', 'Other Non Current Assets', 
-            'Accounts Receivable', 'Gross PPE', 'Inventory', 'Cash Financial', 
-            'Accumulated Depreciation', 'Other Current Liabilities', 
-            'Treasury Shares Number', 'Working Capital', 'Capital Lease Obligations', 
-            'Total Equity Gross Minority Interest', 'Net Debt', 'Tangible Book Value', 
-            'Retained Earnings', 'Payables And Accrued Expenses', 
-            'Land And Improvements', 'Other Short Term Investments', 
-            'Non Current Deferred Taxes Assets', 'Ordinary Shares Number', 
-            'Cash Equivalents', 'Long Term Capital Lease Obligation'
-        ]
-        filtered_df = yahoo_df.loc[yahoo_df['Datos'].astype(str).isin(balance_items)]
-        
-        if filtered_df.empty:
-            balance_keywords = [
-                'asset', 'liability', 'equity', 'debt', 'cash', 'inventory', 
-                'receivable', 'payable', 'stock', 'retained', 'capital'
-            ]
-            mask = yahoo_df['Datos'].str.contains('|'.join(balance_keywords), case=False, na=False)
-            filtered_df = yahoo_df[mask]
-    elif tipo_dato == 'income':
-        income_items = [
-            'Basic EPS', 'Interest Income Non Operating', 'Operating Expense', 
-            'Selling General And Administration', 'Diluted EPS', 
-            'Net Income From Continuing Operation Net Minority Interest', 
-            'Tax Rate For Calcs', 'Net Interest Income', 'Reconciled Cost Of Revenue', 
-            'Interest Expense', 'Operating Income', 'Other Non Operating Income Expenses', 
-            'EBIT', 'Gross Profit', 'Interest Expense Non Operating', 'Basic Average Shares', 
-            'Net Income Common Stockholders', 'Diluted NI Availto Com Stockholders', 
-            'Research And Development', 'EBITDA', 'Interest Income', 'Normalized Income', 
-            'Pretax Income', 'Other Income Expense', 'Diluted Average Shares', 
-            'Normalized EBITDA', 'Reconciled Depreciation', 'Tax Effect Of Unusual Items', 
-            'Cost Of Revenue', 'Total Expenses', 'Tax Provision', 
-            'Total Operating Income As Reported', 'Operating Revenue', 
-            'Net Income From Continuing And Discontinued Operation', 
-            'Net Non Operating Interest Income Expense', 'Total Revenue', 'Net Income', 
-            'Net Income Continuous Operations', 'Net Income Including Noncontrolling Interests'
-        ]
-        filtered_df = yahoo_df.loc[yahoo_df['Datos'].astype(str).isin(income_items)]
-        
-        if filtered_df.empty:
-            income_keywords = [
-                'revenue', 'income', 'expense', 'profit', 'ebit', 'ebitda', 
-                'eps', 'tax', 'operating', 'cost', 'gross'
-            ]
-            mask = yahoo_df['Datos'].str.contains('|'.join(income_keywords), case=False, na=False)
-            filtered_df = yahoo_df[mask]
-    elif tipo_dato == 'cashflow':
-        cashflow_items = [
-            'Issuance Of Debt', 'Net Issuance Payments Of Debt', 
-            'Depreciation And Amortization', 'Change In Payable', 
-            'Interest Paid Supplemental Data', 'Change In Inventory', 
-            'Deferred Tax', 'Repayment Of Debt', 'Change In Other Current Assets', 
-            'Change In Other Current Liabilities', 'Changes In Account Receivables', 
-            'Other Non Cash Items', 'Cash Flow From Continuing Investing Activities', 
-            'Net Business Purchase And Sale', 'Operating Cash Flow', 
-            'Financing Cash Flow', 'Issuance Of Capital Stock', 
-            'Net Long Term Debt Issuance', 'Common Stock Issuance', 
-            'Change In Account Payable', 'Capital Expenditure', 'Deferred Income Tax', 
-            'Depreciation Amortization Depletion', 'Changes In Cash', 
-            'Net Short Term Debt Issuance', 'Common Stock Dividend Paid', 
-            'Sale Of Investment', 'Stock Based Compensation', 
-            'Long Term Debt Payments', 'Cash Flow From Continuing Financing Activities', 
-            'Change In Working Capital', 'Investing Cash Flow', 
-            'Cash Flow From Continuing Operating Activities', 'Purchase Of Investment', 
-            'Repurchase Of Capital Stock', 'Beginning Cash Position', 
-            'Common Stock Payments', 'Long Term Debt Issuance', 
-            'Net Common Stock Issuance', 'Purchase Of Business', 
-            'Income Tax Paid Supplemental Data', 'Net Income From Continuing Operations', 
-            'Net Other Investing Changes', 'Free Cash Flow', 
-            'Net Investment Purchase And Sale', 'Cash Dividends Paid', 
-            'End Cash Position', 'Net PPE Purchase And Sale', 'Change In Receivables', 
-            'Net Other Financing Charges', 'Change In Other Working Capital', 
-            'Change In Payables And Accrued Expense', 'Purchase Of PPE'
-        ]
-        filtered_df = yahoo_df.loc[yahoo_df['Datos'].astype(str).isin(cashflow_items)]
-        
-        if filtered_df.empty:
-            cashflow_keywords = [
-                'cash', 'flow', 'depreciation', 'amortization', 'change', 
-                'investment', 'financing', 'operating', 'dividend', 'issuance'
-            ]
-            mask = yahoo_df['Datos'].str.contains('|'.join(cashflow_keywords), case=False, na=False)
-            filtered_df = yahoo_df[mask]
-    else:
-        filtered_df = pd.DataFrame(columns=["Datos", "2024", "2023", "2022", "2021"])
-    
+
+    if tipo_dato not in _YAHOO_ITEMS:
+        return pd.DataFrame(columns=["Datos", "2024", "2023", "2022", "2021"])
+
+    filtered_df = yahoo_df.loc[yahoo_df['Datos'].astype(str).isin(_YAHOO_ITEMS[tipo_dato])]
+
+    if filtered_df.empty and tipo_dato in _YAHOO_FALLBACK_KEYWORDS:
+        keywords = _YAHOO_FALLBACK_KEYWORDS[tipo_dato]
+        mask = yahoo_df['Datos'].str.contains('|'.join(keywords), case=False, na=False)
+        filtered_df = yahoo_df[mask]
+
     return filtered_df
 
 def filtrar_datos_macrotrends(df, data_type):

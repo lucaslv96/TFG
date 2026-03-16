@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+.env/
+
+# Datos runtime (no versionar el contenido, pero sí los directorios)
+data/db/*
+data/export/*
+!data/db/.gitkeep
+!data/export/.gitkeep
+
+# IDEs
+.idea/
+.vscode/
+*.suo
+*.user
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribución
+dist/
+build/
+*.egg-info/
