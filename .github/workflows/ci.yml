@@ -19,10 +19,10 @@ jobs:
         python-version: '3.12'
 
     - name: Install dependencies
-      run: pip install -e ".[dev]" || pip install pytest
+      run: pip install pytest pandas
 
     - name: Run tests
-      run: pytest tests/ --tb=short || true
+      run: PYTHONPATH=. pytest tests/test_unit.py -v
 
     - name: SonarQube scan
       uses: sonarsource/sonarcloud-github-action@383f7e52eae3ab0510c3cb0e7d9d150bbaeab838  # v3

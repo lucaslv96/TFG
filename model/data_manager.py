@@ -256,6 +256,8 @@ def filtrar_datos_yahoo_importados(yahoo_df, tipo_dato):
     return filtered_df
 
 def filtrar_datos_macrotrends(df, data_type):
+    if df.empty or 'Datos' not in df.columns:
+        return pd.DataFrame()
     # Listas con los nombres de los datos para cada tipo
     income_list = ['Revenue', 'Cost Of Goods Sold', 'Gross Profit', 'Research And Development Expenses', 'SG&A Expenses', 
                    'Other Operating Income Or Expenses', 'Operating Expenses', 'Operating Income', 'Total Non-Operating Income/Expense',
