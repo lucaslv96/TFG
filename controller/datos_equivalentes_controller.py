@@ -1,9 +1,8 @@
-import re  # Importar la biblioteca re
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pandas as pd
-from model.data_manager import PandasModel  # Importación correcta
+from model.data_manager import PandasModel
 from model.database import DataManager
-from controller.chart_controller import ChartWindow
+# ChartWindow se importa de forma lazy dentro de handle_group_click para evitar import circular
 
 # Modelo de tabla personalizado que soporta grupos
 class GroupedPandasModel(PandasModel):
@@ -179,91 +178,85 @@ def _set_grouped_table(table_view, df):
     table_view.setItemDelegate(GroupFrameDelegate(table_view))
 
 
+def _init_year_filter(self):
+    """Crea el widget de filtro de años la primera vez. Solo debe llamarse una vez."""
+    self.year_filter_label = QtWidgets.QLabel("Filtrar años:", self.tab_2)
+    font = QtGui.QFont()
+    font.setPointSize(10)
+    font.setBold(True)
+    self.year_filter_label.setFont(font)
+
+    self.year_filter_combobox = QtWidgets.QComboBox(self.tab_2)
+    self.year_filter_combobox.setMinimumHeight(30)
+    self.year_filter_combobox.setFont(QtGui.QFont("Arial", 10))
+    self.year_filter_combobox.setStyleSheet("""
+        QComboBox {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 5px;
+            background-color: #f8f8f8;
+        }
+        QComboBox::drop-down {
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 25px;
+            border-left: 1px solid #ccc;
+        }
+        QComboBox:hover {
+            background-color: #e0e0e0;
+        }
+        QComboBox QAbstractItemView {
+            border: 1px solid #ccc;
+            selection-background-color: #4a90d9;
+        }
+    """)
+    self.year_filter_combobox.addItems(["Todos los años"] + _ALL_YEARS)
+    self.year_filter_combobox.currentIndexChanged.connect(lambda: mostrar_datos_equivalentes(self))
+
+    filter_frame = QtWidgets.QFrame(self.tab_2)
+    filter_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
+    filter_frame.setFrameShadow(QtWidgets.QFrame.Raised)
+    filter_frame.setStyleSheet("background-color: #f0f0f0; border-radius: 5px; padding: 5px;")
+
+    filter_frame_layout = QtWidgets.QHBoxLayout(filter_frame)
+    filter_frame_layout.addWidget(self.year_filter_label)
+    filter_frame_layout.addWidget(self.year_filter_combobox)
+    filter_frame_layout.addStretch()
+    filter_frame_layout.setContentsMargins(10, 5, 10, 5)
+
+    layout_index = self.tab_2_layout.indexOf(self.label_equivalentes)
+    self.tab_2_layout.insertWidget(layout_index + 1, filter_frame)
+
+    for label in [self.label_equivalentes, self.label_balance, self.label_cash_flow, self.label_income_statement]:
+        font = QtGui.QFont()
+        font.setPointSize(11)
+        font.setBold(True)
+        label.setFont(font)
+        label.setStyleSheet("color: #2c3e50; margin-top: 10px; margin-bottom: 5px;")
+
+    spacer = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+    self.tab_2_layout.insertItem(layout_index + 2, spacer)
+
+
 def mostrar_datos_equivalentes(self):
-    # Si hay un frame guardado de una búsqueda anterior, hacerlo visible nuevamente
-    # Mostramos los controles si: 
-    # 1. La búsqueda ha finalizado (trabajadores_finalizados = 3) o
-    # 2. Estamos importando datos desde archivo (no hay trabajadores_finalizados pero hay datos)
+    # Mostramos los controles si la búsqueda ha finalizado o hay datos cargados
     should_show_controls = (hasattr(self, 'trabajadores_finalizados') and self.trabajadores_finalizados == 3) or \
-                           (hasattr(self, 'data_frames') and not all(df.empty for tipo in self.data_frames.values() 
-                                                                   for df in tipo.values()))
-    
+                           (hasattr(self, 'data_frames') and not all(df.empty for tipo in self.data_frames.values()
+                                                                     for df in tipo.values()))
+
     if hasattr(self, 'saved_filter_frame') and self.saved_filter_frame is not None:
         self.saved_filter_frame.setVisible(should_show_controls)
-            
-    # También revisar el combobox y label directamente
+
     if hasattr(self, 'year_filter_combobox') and self.year_filter_combobox is not None:
         self.year_filter_combobox.setVisible(should_show_controls)
         if hasattr(self, 'year_filter_label'):
             self.year_filter_label.setVisible(should_show_controls)
-    
-    # Verificar si el ComboBox de años ya existe, si no, crearlo
+
+    # Crear el filtro de años solo la primera vez
     if not hasattr(self, 'year_filter_combobox') or self.year_filter_combobox is None:
-        # Crear un label con fuente más grande y en negrita
-        self.year_filter_label = QtWidgets.QLabel("Filtrar años:", self.tab_2)
-        font = QtGui.QFont()
-        font.setPointSize(10)
-        font.setBold(True)
-        self.year_filter_label.setFont(font)
-        
-        # Crear un ComboBox más grande y con mejor apariencia
-        self.year_filter_combobox = QtWidgets.QComboBox(self.tab_2)
-        self.year_filter_combobox.setMinimumHeight(30)  # Altura mínima para mejor visualización
-        self.year_filter_combobox.setFont(QtGui.QFont("Arial", 10))
-        self.year_filter_combobox.setStyleSheet("""
-            QComboBox {
-                border: 1px solid #ccc;
-                border-radius: 5px;
-                padding: 5px;
-                background-color: #f8f8f8;
-            }
-            QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 25px;
-                border-left: 1px solid #ccc;
-            }
-            QComboBox:hover {
-                background-color: #e0e0e0;
-            }
-            QComboBox QAbstractItemView {
-                border: 1px solid #ccc;
-                selection-background-color: #4a90d9;
-            }
-        """)
-        self.year_filter_combobox.addItems(["Todos los años", "2024", "2023", "2022", "2021"])
-        self.year_filter_combobox.currentIndexChanged.connect(lambda: mostrar_datos_equivalentes(self))
-        
-        # Agregar un frame para contener el selector y darle un aspecto más destacado
-        filter_frame = QtWidgets.QFrame(self.tab_2)
-        filter_frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        filter_frame.setFrameShadow(QtWidgets.QFrame.Raised)
-        filter_frame.setStyleSheet("background-color: #f0f0f0; border-radius: 5px; padding: 5px;")
-        
-        # Crear un layout para el frame
-        filter_frame_layout = QtWidgets.QHBoxLayout(filter_frame)
-        filter_frame_layout.addWidget(self.year_filter_label)
-        filter_frame_layout.addWidget(self.year_filter_combobox)
-        filter_frame_layout.addStretch()
-        filter_frame_layout.setContentsMargins(10, 5, 10, 5)  # Añadir márgenes internos
-        
-        # Insertar el frame en el layout principal
-        layout_index = self.tab_2_layout.indexOf(self.label_equivalentes)
-        self.tab_2_layout.insertWidget(layout_index + 1, filter_frame)
-        
-        # Mejorar la apariencia de los labels de sección
-        for label in [self.label_equivalentes, self.label_balance, self.label_cash_flow, self.label_income_statement]:
-            font = QtGui.QFont()
-            font.setPointSize(11)  # Aumentar tamaño de fuente
-            font.setBold(True)     # Poner en negrita
-            label.setFont(font)
-            label.setStyleSheet("color: #2c3e50; margin-top: 10px; margin-bottom: 5px;")
-            
-        # Agregar un pequeño espacio después de la etiqueta principal
-        spacer = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        self.tab_2_layout.insertItem(layout_index + 2, spacer)
-    
-    # Obtener el año seleccionado con manejo seguro
+        _init_year_filter(self)
+
+    # Obtener el año seleccionado
     selected_year = self.year_filter_combobox.currentText() if hasattr(self, 'year_filter_combobox') and self.year_filter_combobox else "Todos los años"
     
     data_manager = DataManager()
@@ -284,15 +277,8 @@ def mostrar_datos_equivalentes(self):
     '''
     datos_equivalentes = data_manager.fetch_data(query)
 
-    if not datos_equivalentes:
-        datos_equivalentes = [("Test Google", "Test Macrotrends", "Test Yahoo", "test", "Test Google Inicial", "Test Macrotrends Inicial", "Test Yahoo Inicial")]
-
     # Crear DataFrame para los datos equivalentes
     df_equivalentes = pd.DataFrame(datos_equivalentes, columns=[GOOGLE_FINANCE, MACROTRENDS, YAHOO_FINANCE, TIPO, GOOGLE_INICIAL, MACROTRENDS_INICIAL, YAHOO_INICIAL])
-
-    if df_equivalentes.empty:
-        df_equivalentes = pd.DataFrame([["Test Google", "Test Macrotrends", "Test Yahoo", "test", "Test Google Inicial", "Test Macrotrends Inicial", "Test Yahoo Inicial"]],
-                                       columns=[GOOGLE_FINANCE, MACROTRENDS, YAHOO_FINANCE, TIPO, GOOGLE_INICIAL, MACROTRENDS_INICIAL, YAHOO_INICIAL])
 
     # Separar los datos por tipo
     balance_df = df_equivalentes[df_equivalentes[TIPO] == "balance"].drop(columns=[TIPO])
@@ -378,11 +364,11 @@ def handle_group_click(self, data_type, index):
         if hasattr(self, 'current_chart_window') and self.current_chart_window is not None:
             try:
                 self.current_chart_window.close()
-            except:
-                pass
-        
+            except RuntimeError:
+                pass  # La ventana ya fue destruida por Qt
+
         # Mostrar un nuevo gráfico y guardar referencia
-        from controller.chart_controller import ChartWindow
+        from controller.chart_controller import ChartWindow  # lazy import para evitar circular
         self.current_chart_window = ChartWindow(group_data, title, self)
         self.current_chart_window.show()
 

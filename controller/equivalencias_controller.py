@@ -3,7 +3,7 @@ from PyQt5 import QtGui
 from PyQt5.QtWidgets import QMessageBox
 from config import DB_PATH
 
-_bbdd_ = str(DB_PATH)
+_db_path = str(DB_PATH)
 
 # Definir constantes para las consultas SQL
 UPDATE_MACROTRENDS = '''UPDATE macrotrends SET dato_actual = ? WHERE id = ?'''
@@ -14,7 +14,7 @@ SELECT_YAHOO_FINANCE = '''SELECT id, dato_actual FROM yahoo_finance WHERE tipo_d
 
 def populate_table(ui, data_type):
     """Carga los datos en la tabla desde Google Finance, Macrotrends y Yahoo Finance para un tipo de dato específico."""
-    conn = sqlite3.connect(_bbdd_)
+    conn = sqlite3.connect(_db_path)
     cursor = conn.cursor()
 
     # Consulta para obtener los datos de Google Finance aunque no haya datos en Macrotrends o Yahoo Finance
@@ -64,7 +64,7 @@ def populate_table(ui, data_type):
     
 def restaurar_valores_por_defecto():
     """Restaura dato_actual con dato_inicial en todas las tablas de la base de datos."""
-    conn = sqlite3.connect(_bbdd_)
+    conn = sqlite3.connect(_db_path)
     cursor = conn.cursor()
 
     try:
@@ -73,14 +73,15 @@ def restaurar_valores_por_defecto():
         cursor.execute("UPDATE macrotrends SET dato_actual = dato_inicial")
         conn.commit()
     except Exception as e:
-        pass
+        conn.rollback()
+        raise RuntimeError(f"Error al restaurar valores por defecto: {e}") from e
     finally:
         conn.close()
 
 
 def actualizar_valor(fuente, nuevo_valor, id):
     """Actualiza el valor de la equivalencia (Macrotrends o Yahoo Finance) con un nuevo valor."""
-    conn = sqlite3.connect(_bbdd_)
+    conn = sqlite3.connect(_db_path)
     cursor = conn.cursor()
 
     if fuente == "Macrotrends":
@@ -117,12 +118,22 @@ def confirmar_restauracion(ventana):
         restaurar_valores(ventana)
 
 def restaurar_valores(ventana):
-    restaurar_valores_por_defecto()
+    try:
+        restaurar_valores_por_defecto()
+    except RuntimeError as e:
+        QMessageBox.warning(None, "Error", str(e))
+        return
     QMessageBox.information(None, "Restauración", "Se han restaurado los valores por defecto.")
     populate_table(ventana, 'balance')
 
 def populate_mappings():
-    conn = sqlite3.connect(_bbdd_)
+    # Limpiar mapas antes de repoblar para evitar acumulación de entradas obsoletas
+    for data_type in ['balance', 'income', 'cashflow']:
+        macrotrends_map[data_type].clear()
+        yahoo_map[data_type].clear()
+        google_map[data_type].clear()
+
+    conn = sqlite3.connect(_db_path)
     cursor = conn.cursor()
 
     for data_type in ['balance', 'income', 'cashflow']:
@@ -134,7 +145,6 @@ def populate_mappings():
         for row in cursor.fetchall():
             yahoo_map[data_type][row[1]] = row[0]
 
-        # Poblar google_map
         cursor.execute("SELECT id, dato_actual FROM google_finance WHERE tipo_dato = ?", (data_type,))
         for row in cursor.fetchall():
             google_map[data_type][row[1]] = row[0]
@@ -146,7 +156,7 @@ def actualizar_valor_inmediato(ventana, item):
     col = item.column()
     new_value = item.text()
 
-    conn = sqlite3.connect(_bbdd_)
+    conn = sqlite3.connect(_db_path)
     cursor = conn.cursor()
 
     # Obtener los IDs de la fila
@@ -165,22 +175,23 @@ def actualizar_valor_inmediato(ventana, item):
     conn.close()
 
 def guardar_cambios(ventana):
-    conn = sqlite3.connect(_bbdd_)
+    conn = sqlite3.connect(_db_path)
     cursor = conn.cursor()
 
     for row in range(ventana.tableModel.rowCount()):
-        macrotrends_value = ventana.tableModel.item(row, 1).text()
-        yahoo_value = ventana.tableModel.item(row, 2).text()
+        # Columnas: 0=Google Finance, 1=Yahoo Finance, 2=Macrotrends (ver populate_table)
+        yahoo_value = ventana.tableModel.item(row, 1).text()
+        macrotrends_value = ventana.tableModel.item(row, 2).text()
 
         data_type = ventana.current_data_type
-
-        macrotrends_id = macrotrends_map[data_type].get(macrotrends_value)
-        if macrotrends_id:
-            cursor.execute(UPDATE_MACROTRENDS, (macrotrends_value, macrotrends_id))
 
         yahoo_id = yahoo_map[data_type].get(yahoo_value)
         if yahoo_id:
             cursor.execute(UPDATE_YAHOO_FINANCE, (yahoo_value, yahoo_id))
+
+        macrotrends_id = macrotrends_map[data_type].get(macrotrends_value)
+        if macrotrends_id:
+            cursor.execute(UPDATE_MACROTRENDS, (macrotrends_value, macrotrends_id))
 
     conn.commit()
     conn.close()

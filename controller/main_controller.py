@@ -17,6 +17,7 @@ class Worker(QThread):
         self.ticker = ticker
 
     def run(self):
+        # Import lazy para no cargar Selenium antes de que Qt esté completamente inicializado
         from scrapers.google_finance_scraper import GoogleFinanceScraper
         scraper = GoogleFinanceScraper()
         df = scraper.get_stock_data(self.ticker)
@@ -151,7 +152,8 @@ def _construir_data_frames(self, ticker=None, importados=False):
 
 
 def _get_company_name(ticker):
-    """Obtiene el nombre de la empresa desde Yahoo Finance; devuelve None si no está disponible."""
+    """Obtiene el nombre de la empresa desde Yahoo Finance; devuelve None si no está disponible.
+    NOTA: Se ejecuta en el hilo principal — puede causar un breve freeze si la red es lenta."""
     try:
         name = YahooFinanceScraper().get_company_name(ticker)
         return name if name and name != "Nombre de la empresa no disponible" else None
@@ -293,9 +295,10 @@ def mostrar_todos_los_datos(self):
     self.lineEdit.setEnabled(True)
     self.pushButton.setEnabled(True)
 
-    self.df             = self.google_df      if hasattr(self, 'google_df')      and not self.google_df.empty      else pd.DataFrame()
-    self.df_yahoo       = self.yahoo_df       if hasattr(self, 'yahoo_df')       and not self.yahoo_df.empty       else pd.DataFrame()
-    self.df_macrotrends = self.macrotrends_df if hasattr(self, 'macrotrends_df') and not self.macrotrends_df.empty else pd.DataFrame()
+    # Estos atributos siempre son DataFrames (inicializados en buscar_datos)
+    self.df             = self.google_df
+    self.df_yahoo       = self.yahoo_df
+    self.df_macrotrends = self.macrotrends_df
 
     ticker = self.lineEdit.text().strip()
     _construir_data_frames(self, ticker=ticker, importados=False)
@@ -314,10 +317,6 @@ def mostrar_todos_los_datos(self):
     self.balanceButton.clicked.connect(lambda: mostrar_datos_filtrados(self, 'balance'))
     self.flujoCajaButton.clicked.connect(lambda: mostrar_datos_filtrados(self, 'cashflow'))
     self.perdidasGananciasButton.clicked.connect(lambda: mostrar_datos_filtrados(self, 'income'))
-
-    self.balanceButton.clicked.connect(lambda: mostrar_datos_filtrados_macrotrends(self, 'balance'))
-    self.flujoCajaButton.clicked.connect(lambda: mostrar_datos_filtrados_macrotrends(self, 'cashflow'))
-    self.perdidasGananciasButton.clicked.connect(lambda: mostrar_datos_filtrados_macrotrends(self, 'income'))
 
     if not self.data_frames['balance']['google'].empty:
         _set_table_model(self.tableView, self.data_frames['balance']['google'])
@@ -338,20 +337,11 @@ def mostrar_todos_los_datos(self):
 
 
 def mostrar_datos_filtrados(self, data_type):
-    if self.df.empty:
-        return
-    _set_table_model(self.tableView, filtrar_datos_google(self.df, data_type))
+    if not self.df.empty:
+        _set_table_model(self.tableView, filtrar_datos_google(self.df, data_type))
+    if not self.df_macrotrends.empty:
+        _set_table_model(self.tableView_4, filtrar_datos_macrotrends(self.df_macrotrends, data_type))
     display_selected_data(self, data_type)
-
-
-def mostrar_datos_filtrados_macrotrends(self, data_type):
-    if self.df_macrotrends.empty:
-        return
-    _set_table_model(self.tableView_4, filtrar_datos_macrotrends(self.df_macrotrends, data_type))
-
-
-def mostrar_balance(self):
-    mostrar_datos_filtrados(self, 'balance')
 
 
 def display_selected_data(self, data_type):

@@ -15,7 +15,7 @@ class ChartWindow(QtWidgets.QWidget):  # Cambiado de QDialog a QWidget
         
         self.data = data
         self.title = title
-        self.parent = parent  # Guardar referencia al padre
+        self._main_window = parent  # Guardar referencia al padre (no usar self.parent para no sobreescribir el método Qt)
         self.setStyleSheet("""
             QWidget {
                 background-color: #f9f9f9;
@@ -53,11 +53,11 @@ class ChartWindow(QtWidgets.QWidget):  # Cambiado de QDialog a QWidget
     
     def _hide_secondary_search_buttons(self):
         """Oculta los botones de búsqueda secundaria de la ventana principal al importar datos de archivo"""
-        if self.parent and hasattr(self.parent, 'hide_secondary_search_buttons'):
+        if self._main_window and hasattr(self._main_window, 'hide_secondary_search_buttons'):
             try:
-                self.parent.hide_secondary_search_buttons()
-            except Exception as e:
-                pass
+                self._main_window.hide_secondary_search_buttons()
+            except Exception:
+                pass  # La ventana principal puede no tener este método en todos los contextos
     
     def _normalize_data(self):
         # Normalizar y limpiar datos para graficar
@@ -167,8 +167,13 @@ class ChartWindow(QtWidgets.QWidget):  # Cambiado de QDialog a QWidget
                 else:
                     clean_value = value_str.replace('.', '').replace(',', '.')
             elif '.' in value_str and ',' not in value_str:
-                # Formato USA con puntos como miles: XX.XXX -> XXXXX
-                clean_value = value_str.replace('.', '')
+                # Separador de miles solo si sigue el patrón X.XXX (grupos de 3 dígitos)
+                # Evitar tratar "1.5" (decimal) como "15"
+                import re as _re
+                if _re.match(r'^\d{1,3}(\.\d{3})+$', value_str):
+                    clean_value = value_str.replace('.', '')
+                else:
+                    clean_value = value_str  # tratar el punto como decimal
             elif ',' in value_str and '.' not in value_str:
                 # Solo coma, tratar como decimal
                 clean_value = value_str.replace(',', '.')
